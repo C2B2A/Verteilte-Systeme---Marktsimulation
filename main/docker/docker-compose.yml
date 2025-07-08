@@ -1,0 +1,23 @@
+version: '3'
+services:
+  marketplace1:
+    build: 
+      context: .
+      dockerfile: docker/Dockerfile.marketplace
+    command: ["--instance=1"]
+    ports:
+      - "5555:5555"
+    
+  marketplace2:
+    build: 
+      context: .
+      dockerfile: docker/Dockerfile.marketplace
+    command: ["--instance=2"]
+    ports:
+      - "5556:5555"
+      
+  seller1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.seller
+    command: ["--instance=1"]

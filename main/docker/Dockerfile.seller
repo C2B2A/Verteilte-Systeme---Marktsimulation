@@ -1,0 +1,10 @@
+FROM openjdk:17-jre-slim
+
+WORKDIR /app
+
+COPY target/seller.jar .
+COPY config/config.properties config/
+
+EXPOSE 5556
+
+ENTRYPOINT ["java", "-jar", "seller.jar"]

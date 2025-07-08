@@ -1,0 +1,10 @@
+FROM openjdk:17-jre-slim
+
+WORKDIR /app
+
+COPY target/marketplace.jar .
+COPY config/config.properties config/
+
+EXPOSE 5555
+
+ENTRYPOINT ["java", "-jar", "marketplace.jar"]
