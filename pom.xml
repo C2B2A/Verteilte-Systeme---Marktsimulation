@@ -7,7 +7,7 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>de.uni.scb</groupId>
-    <artifactId>scb-marketplace</artifactId>
+    <artifactId>marktsimulation</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
     
