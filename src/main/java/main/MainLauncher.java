@@ -4,7 +4,7 @@ import main.marketplace.MarketplaceApp;
 import main.seller.SellerApp;
 
 /**
- * Hauptklasse zum Starten von Marketplace oder Seller - entscheidet: ruft Seller und Marketplace auf.
+ * Hauptklasse zum Starten von Marketplace oder Seller
  * Verwendung: java -jar <jar> --mode=<marketplace|seller> [weitere optionen]
  */
 public class MainLauncher {
@@ -17,9 +17,14 @@ public class MainLauncher {
         
         String mode = null;
         
-        // Parse mode
+        // Parse mode aus verschiedenen Formaten
         for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("--mode") && i + 1 < args.length) {
+            if (args[i].startsWith("--mode=")) {
+                // Format: --mode=marketplace
+                mode = args[i].substring(7).toLowerCase();
+                break;
+            } else if (args[i].equals("--mode") && i + 1 < args.length) {
+                // Format: --mode marketplace
                 mode = args[i + 1].toLowerCase();
                 break;
             }
@@ -39,10 +44,6 @@ public class MainLauncher {
                 
             case "seller":
                 SellerApp.main(args);
-                break;
-                
-            case "test":
-                TestClient.main(args);
                 break;
                 
             default:
