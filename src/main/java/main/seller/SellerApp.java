@@ -33,8 +33,16 @@ public class SellerApp {
     }
     
     public void start() {
-        System.out.println("=== Seller " + sellerId + " startet auf Port " + port + " ===");
-        inventory.printStatus();
+        System.out.println("\n╔════════════════════════════════════════════╗");
+        System.out.println("║        SELLER " + sellerId + " GESTARTET                 ║");
+        System.out.println("╠════════════════════════════════════════════╣");
+        System.out.println("║ Port: " + port + "                                  ║");
+        System.out.println("║ Produkte:                                  ║");
+        System.out.println("║   - P" + sellerId + "A (Produkt A): Bestand " + 
+                         String.format("%-2d", inventory.getProduct("P" + sellerId + "A").getStock()) + "         ║");
+        System.out.println("║   - P" + sellerId + "B (Produkt B): Bestand " + 
+                         String.format("%-2d", inventory.getProduct("P" + sellerId + "B").getStock()) + "         ║");
+        System.out.println("╚════════════════════════════════════════════╝\n");
         
         try (ZContext context = new ZContext()) {
             ZMQ.Socket socket = context.createSocket(SocketType.REP);
@@ -117,7 +125,7 @@ public class SellerApp {
             response.reason = "Produkt nicht bekannt";
         } else if (inventory.reserve(req.orderId, req.productId, req.quantity)) {
             response.status = "RESERVED";
-            System.out.println("[" + sellerId + "] Reserviert: " + req.quantity + "x " + 
+            System.out.println("[" + sellerId + "] ✓ Reserviert: " + req.quantity + "x " + 
                              product.getName() + " für Order " + req.orderId);
             inventory.printStatus();
         } else {
@@ -136,7 +144,7 @@ public class SellerApp {
         
         if (inventory.cancelReservation(req.orderId, req.productId)) {
             response.status = "CANCELLED";
-            System.out.println("[" + sellerId + "] Storniert: Order " + req.orderId);
+            System.out.println("[" + sellerId + "] ↻ Storniert: Order " + req.orderId);
             inventory.printStatus();
         } else {
             response.status = "FAILED";
@@ -147,7 +155,7 @@ public class SellerApp {
     
     private String handleConfirm(ConfirmRequest req) {
         inventory.confirmReservation(req.orderId);
-        System.out.println("[" + sellerId + "] Bestätigt: Order " + req.orderId);
+        System.out.println("[" + sellerId + "] ✓ Bestätigt: Order " + req.orderId);
         return "{\"status\":\"CONFIRMED\"}";
     }
     
@@ -157,12 +165,18 @@ public class SellerApp {
         int port = 5556;
         String configFile = null;
         
-        // Parse arguments
+        // Parse arguments - unterstütze beide Formate
         for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("--id") && i + 1 < args.length) {
+            if (args[i].startsWith("--id=")) {
+                sellerId = args[i].substring(5);
+            } else if (args[i].equals("--id") && i + 1 < args.length) {
                 sellerId = args[++i];
+            } else if (args[i].startsWith("--port=")) {
+                port = Integer.parseInt(args[i].substring(7));
             } else if (args[i].equals("--port") && i + 1 < args.length) {
                 port = Integer.parseInt(args[++i]);
+            } else if (args[i].startsWith("--config=")) {
+                configFile = args[i].substring(9);
             } else if (args[i].equals("--config") && i + 1 < args.length) {
                 configFile = args[++i];
             }

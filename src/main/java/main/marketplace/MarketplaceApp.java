@@ -38,7 +38,16 @@ public class MarketplaceApp {
      * Startet den Marketplace
      */
     public void start() {
-        System.out.println("=== Marketplace " + marketplaceId + " gestartet ===");
+        System.out.println("\n╔════════════════════════════════════════════╗");
+        System.out.println("║      MARKETPLACE " + marketplaceId + " GESTARTET             ║");
+        System.out.println("╠════════════════════════════════════════════╣");
+        System.out.println("║ Seller S1: PS1A (Produkt A), PS1B (Produkt B) ║");
+        System.out.println("║ Seller S2: PS2A (Produkt A), PS2B (Produkt B) ║");
+        System.out.println("║ Seller S3: PS3A (Produkt A), PS3B (Produkt B) ║");
+        System.out.println("║ Seller S4: PS4A (Produkt A), PS4B (Produkt B) ║");
+        System.out.println("║ Seller S5: PS5A (Produkt A), PS5B (Produkt B) ║");
+        System.out.println("╚════════════════════════════════════════════╝\n");
+        
         ConfigLoader.printConfig();
         
         // Starte Order-Generator
@@ -119,12 +128,14 @@ public class MarketplaceApp {
             order.products = products;
             
             System.out.println("\n========================================");
-            System.out.println("[Marketplace] Neue Bestellung generiert:");
+            System.out.println("[" + marketplaceId + "] Neue Bestellung generiert:");
             System.out.println("Order ID: " + orderId);
             System.out.println("Kunde: " + customerId);
             System.out.println("Produkte:");
             for (OrderRequest.ProductOrder p : products) {
-                System.out.println("  - " + p.productId + " x " + p.quantity);
+                String sellerId = p.productId.substring(1, 3);
+                System.out.println("  - " + p.productId + " x " + p.quantity + 
+                                 " (von Seller " + sellerId + ")");
             }
             System.out.println("========================================");
             
@@ -132,7 +143,7 @@ public class MarketplaceApp {
             orderProcessor.processOrder(order);
             
         } catch (Exception e) {
-            System.err.println("[Marketplace] Fehler beim Generieren: " + e.getMessage());
+            System.err.println("[" + marketplaceId + "] Fehler beim Generieren: " + e.getMessage());
         }
     }
     
@@ -140,7 +151,7 @@ public class MarketplaceApp {
      * Beendet den Marketplace
      */
     public void shutdown() {
-        System.out.println("\n[Marketplace] Fahre herunter...");
+        System.out.println("\n[" + marketplaceId + "] Fahre herunter...");
         running = false;
         scheduler.shutdown();
         orderProcessor.shutdown();
@@ -153,7 +164,7 @@ public class MarketplaceApp {
             scheduler.shutdownNow();
         }
         
-        System.out.println("[Marketplace] Beendet.");
+        System.out.println("[" + marketplaceId + "] Beendet.");
     }
     
     /**
@@ -163,10 +174,14 @@ public class MarketplaceApp {
         String marketplaceId = "M1";
         String configFile = null;
         
-        // Parse arguments
+        // Parse arguments - unterstütze beide Formate
         for (int i = 0; i < args.length; i++) {
-            if (args[i].equals("--id") && i + 1 < args.length) {
+            if (args[i].startsWith("--id=")) {
+                marketplaceId = args[i].substring(5);
+            } else if (args[i].equals("--id") && i + 1 < args.length) {
                 marketplaceId = args[++i];
+            } else if (args[i].startsWith("--config=")) {
+                configFile = args[i].substring(9);
             } else if (args[i].equals("--config") && i + 1 < args.length) {
                 configFile = args[++i];
             }
