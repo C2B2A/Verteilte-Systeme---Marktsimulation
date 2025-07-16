@@ -99,7 +99,17 @@ public class MarketplaceApp {
                 
                 // Zufällige Menge (1-3)
                 int quantity = random.nextInt(3) + 1;
-                products.add(new OrderRequest.ProductOrder(productId, quantity));
+                
+                // 10% Chance für doppelte Produktanforderung (fachlicher Fehler)
+                if (random.nextDouble() < 0.1 && i > 0) {
+                    // Nimm ein bereits verwendetes Produkt
+                    String duplicateProduct = products.get(0).productId;
+                    products.add(new OrderRequest.ProductOrder(duplicateProduct, quantity));
+                    System.out.println("  WARNUNG: Doppelte Produktanforderung simuliert!");
+                    break;
+                } else {
+                    products.add(new OrderRequest.ProductOrder(productId, quantity));
+                }
             }
             
             // Erstelle Bestellung

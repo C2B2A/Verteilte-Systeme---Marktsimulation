@@ -222,9 +222,28 @@ public class OrderProcessor {
      * Sendet Bestätigung an Seller
      */
     private void sendConfirmation(ConfirmRequest confirm, String sellerId) {
-        // Implementierung ähnlich wie sendReservationRequest
-        System.out.println("[OrderProcessor] Sende Bestätigung an " + sellerId);
-        // TODO: Implementieren
+        Integer port = sellerPorts.get(sellerId);
+        if (port == null) return;
+        
+        try {
+            ZMQ.Socket socket = context.createSocket(SocketType.REQ);
+            socket.setReceiveTimeOut(ConfigLoader.getTimeout());
+            socket.connect("tcp://localhost:" + port);
+            
+            String json = MessageHandler.toJson(confirm);
+            System.out.println("[OrderProcessor] Sende Bestätigung an " + 
+                             sellerId + ": " + json);
+            socket.send(json);
+            
+            String response = socket.recvStr();
+            if (response != null && !response.isEmpty()) {
+                System.out.println("[OrderProcessor] Bestätigung erhalten von " + sellerId);
+            }
+            
+            socket.close();
+        } catch (ZMQException e) {
+            System.err.println("[OrderProcessor] Fehler bei Bestätigung: " + e.getMessage());
+        }
     }
     
     /**

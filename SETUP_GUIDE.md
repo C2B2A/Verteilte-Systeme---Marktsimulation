@@ -36,13 +36,19 @@ java -jar target/marktsimulation-1.0.0-jar-with-dependencies.jar --mode=seller -
 ------------------------------
 ## 📁 Projektstruktur
 ```
+├──Maven-Wrapper
 ├── src/main/java/main/    # Java Source Code
 │   ├── marketplace/       # Marketplace-Komponenten
 │   ├── seller/           # Seller-Komponenten
 │   ├── messaging/        # ZeroMQ Kommunikation
 │   └── simulation/       # Fehlersimulation
 ├── config/               # Konfigurationsdateien
-├── docker/              # Docker-Dateien (optional)
+├── docker/              # Docker-Dateien 
+├──Initialisierungsdatein für den Build
+├──README und SETUP_GUIDE
+├──start-system.bat        # Starten des gesamten Systems
+
+(optional)
 └── docs/                # Dokumentation
 
 Der target/ Ordner ist der Maven-Arbeitsbereich
