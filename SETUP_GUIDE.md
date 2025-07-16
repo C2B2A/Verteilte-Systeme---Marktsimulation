@@ -2,23 +2,23 @@
 
 ## Voraussetzungen
 - **Java 17** oder höher installiert ([Download](https://adoptium.net/))
+- **Java Development Kit - JDK** muss installiert sein
 - **Git** installiert
 - Keine Maven-Installation nötig! (Maven Wrapper ist dabei)
 
 ## Quick Start ------------------------------
-
 ## 1️⃣ Projekt klonen
-```bash
 git clone <repository-url>
 cd Verteilte-Systeme---Marktsimulation
-```
+
 ## 2️⃣ Projekt bauen
+**Sofern eine JDK installiert ist oder neu wurde, muss die IDE neu geöffnet werden. Danach warten, bis "Java: Ready" erscheint!**
 ### Windows:
-```bash
+```cmd
 build clean install
 ```
 ### Mac/Linux:
-```bash
+```bash/cmd?
 chmod +x mvnw    # Nur beim ersten Mal nötig!
 ./mvnw clean install
 ```
