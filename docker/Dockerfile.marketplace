@@ -2,9 +2,11 @@ FROM openjdk:17-jre-slim
 
 WORKDIR /app
 
-COPY target/marketplace.jar .
+# Kopiere die korrekte JAR
+COPY target/marktsimulation-1.0.0-jar-with-dependencies.jar app.jar
 COPY config/config.properties config/
 
 EXPOSE 5555
 
-ENTRYPOINT ["java", "-jar", "marketplace.jar"]
+# Starte mit mode parameter
+ENTRYPOINT ["java", "-jar", "app.jar", "--mode=marketplace"]
