@@ -25,13 +25,6 @@
             <version>0.5.3</version>
         </dependency>
         
-        <!-- JSON Verarbeitung -->
-        <dependency>
-            <groupId>com.google.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.10.1</version>
-        </dependency>
-        
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>

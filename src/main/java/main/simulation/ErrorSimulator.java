@@ -3,21 +3,28 @@ package main.simulation;
 import java.util.Random;
 
 /**
- * Simuliert Fehler basierend auf Wahrscheinlichkeiten
+ * Simuliert technische und fachliche Fehler basierend auf Wahrscheinlichkeiten
  * Verwendet Normal-Verteilung für Zeiten
  */
 public class ErrorSimulator {
     private static final Random random = new Random();
     
-    // Fehlertypen
+    // Technische Fehlertypen
     public enum ErrorType {
         SUCCESS,              // Alles OK
         FAIL_NO_RESPONSE,    // Keine Antwort (Timeout)
         FAIL_CRASH          // Crash nach Empfang
     }
     
+    // Fachliche Fehlertypen
+    public enum BusinessError {
+        NONE,                    // Kein Fehler
+        PRODUCT_UNAVAILABLE,     // Produkt "versehentlich" nicht verfügbar
+        UNKNOWN_PRODUCT         // Produkt-ID nicht bekannt (wird in SellerApp geprüft)
+    }
+    
     /**
-     * Entscheidet welcher Fehlertyp auftreten soll
+     * Entscheidet welcher TECHNISCHE Fehlertyp auftreten soll
      */
     public static ErrorType getNextError() {
         double rand = random.nextDouble();
@@ -31,6 +38,21 @@ public class ErrorSimulator {
         } else {
             return ErrorType.FAIL_CRASH;
         }
+    }
+    
+    /**
+     * Entscheidet ob ein FACHLICHER Fehler auftreten soll
+     * Wird nur aufgerufen wenn technisch alles OK ist
+     */
+    public static BusinessError getBusinessError() {
+        double rand = random.nextDouble();
+        
+        // Prüfe ob Produkt "versehentlich" nicht verfügbar sein soll
+        if (rand < ConfigLoader.getProductNotAvailableProbability()) {
+            return BusinessError.PRODUCT_UNAVAILABLE;
+        }
+        
+        return BusinessError.NONE;
     }
     
     /**
@@ -49,18 +71,7 @@ public class ErrorSimulator {
     }
     
     /**
-     * Simuliert ob Produkt auf Lager ist (fachlicher Fehler)
-     */
-    public static boolean isProductAvailable(int currentStock, int requested) {
-        // 20% Chance dass "versehentlich" nicht verfügbar (Simulation)
-        if (random.nextDouble() < 0.2) {
-            return false;
-        }
-        return currentStock >= requested;
-    }
-    
-    /**
-     * Hilfsmethode: Thread schlafen lassen
+     * Hilfsmethode: Thread schlafen lassen für Verarbeitungssimulation
      */
     public static void simulateProcessing() {
         try {
@@ -75,8 +86,14 @@ public class ErrorSimulator {
      */
     public static void printErrorStatistics(int total) {
         System.out.println("\n=== Fehlerstatistik (Erwartung bei " + total + " Anfragen) ===");
-        System.out.println("Erfolg: " + (int)(total * ConfigLoader.getSuccessProbability()));
-        System.out.println("Timeout: " + (int)(total * ConfigLoader.getFailWithoutResponseProbability()));
-        System.out.println("Crash: " + (int)(total * ConfigLoader.getFailWithCrashProbability()));
+        System.out.println("TECHNISCHE FEHLER:");
+        System.out.println("  Erfolg: " + (int)(total * ConfigLoader.getSuccessProbability()));
+        System.out.println("  Timeout: " + (int)(total * ConfigLoader.getFailWithoutResponseProbability()));
+        System.out.println("  Crash: " + (int)(total * ConfigLoader.getFailWithCrashProbability()));
+        System.out.println("\nFACHLICHE FEHLER (bei erfolgreichen Anfragen):");
+        int successfulRequests = (int)(total * ConfigLoader.getSuccessProbability());
+        System.out.println("  Produkt nicht verfügbar: " + 
+                         (int)(successfulRequests * ConfigLoader.getProductNotAvailableProbability()));
+        System.out.println("==================================================\n");
     }
 }

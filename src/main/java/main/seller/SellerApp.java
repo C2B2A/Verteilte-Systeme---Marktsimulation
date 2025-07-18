@@ -1,5 +1,6 @@
 package main.seller;
 
+import main.messaging.MessageFormat;
 import main.messaging.MessageHandler;
 import main.messaging.MessageTypes.*;
 import main.simulation.ConfigLoader;
@@ -113,27 +114,44 @@ public class SellerApp {
         }
     }
     
-    private String handleReserve(ReserveRequest req) {
+     private String handleReserve(ReserveRequest req) {
         ReserveResponse response = new ReserveResponse();
         response.orderId = req.orderId;
         response.productId = req.productId;
         response.sellerId = sellerId;
         
         Product product = inventory.getProduct(req.productId);
+        
+        // Fachlicher Fehler 1: Unbekanntes Produkt
         if (product == null) {
             response.status = "FAILED";
             response.reason = "Produkt nicht bekannt";
-        } else if (inventory.reserve(req.orderId, req.productId, req.quantity)) {
+            System.out.println("[" + sellerId + "] ✗ FACHLICHER FEHLER: Unbekanntes Produkt " + req.productId);
+        } 
+        // Fachlicher Fehler 2: Produkt "versehentlich" nicht verfügbar
+        // Nur prüfen wenn technisch alles OK ist (SUCCESS)
+        else if (ErrorSimulator.getBusinessError() == ErrorSimulator.BusinessError.PRODUCT_UNAVAILABLE) {
+            response.status = "FAILED";
+            response.reason = "Produkt temporär nicht verfügbar";
+            System.out.println("[" + sellerId + "] ✗ FACHLICHER FEHLER: Produkt " + req.productId + 
+                             " als nicht verfügbar markiert (trotz Bestand: " + product.getStock() + ")");
+        }
+        // Normale Reservierung versuchen
+        else if (inventory.reserve(req.orderId, req.productId, req.quantity)) {
             response.status = "RESERVED";
             System.out.println("[" + sellerId + "] ✓ Reserviert: " + req.quantity + "x " + 
                              product.getName() + " für Order " + req.orderId);
             inventory.printStatus();
-        } else {
+        } 
+        // Fachlicher Fehler 3: Nicht genug auf Lager
+        else {
             response.status = "FAILED";
             response.reason = "Nicht genug auf Lager";
+            System.out.println("[" + sellerId + "] ✗ FACHLICHER FEHLER: Nicht genug auf Lager " +
+                             "(Angefordert: " + req.quantity + ", Verfügbar: " + product.getStock() + ")");
         }
         
-        return MessageHandler.toJson(response);
+        return MessageFormat.format(response);
     }
     
     private String handleCancel(CancelRequest req) {
@@ -156,7 +174,7 @@ public class SellerApp {
     private String handleConfirm(ConfirmRequest req) {
         inventory.confirmReservation(req.orderId);
         System.out.println("[" + sellerId + "] ✓ Bestätigt: Order " + req.orderId);
-        return "{\"status\":\"CONFIRMED\"}";
+        return "CONFIRMED|" + req.orderId + "|" + req.productId + "|" + req.sellerId;
     }
     
     // Main-Methode

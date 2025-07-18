@@ -93,12 +93,43 @@ public class ConfigLoader {
         return Integer.parseInt(properties.getProperty("seller.initial_stock"));
     }
     
-    // Config ausgeben
+    /**
+     * Wahrscheinlichkeit dass ein Produkt "versehentlich" nicht verfügbar ist
+     * (Fachlicher Fehler - Simulation)
+     */
+    public static double getProductNotAvailableProbability() {
+        ensureLoaded();
+        return Double.parseDouble(properties.getProperty(
+            "simulation.probability.product_not_available", "0.2"));
+    }
+    
+    /**
+     * Wahrscheinlichkeit für doppelte Produktanforderung in Bestellung
+     * (Fachlicher Fehler - Simulation)
+     */
+    public static double getDuplicateProductProbability() {
+        ensureLoaded();
+        return Double.parseDouble(properties.getProperty(
+            "simulation.probability.duplicate_product", "0.1"));
+    }
+    
+    // Config ausgeben (erweitert)
     public static void printConfig() {
         ensureLoaded();
         System.out.println("\n=== Aktuelle Konfiguration ===");
-        properties.forEach((key, value) -> 
-            System.out.println(key + " = " + value));
+        System.out.println("TECHNISCHE FEHLER:");
+        System.out.println("  Erfolg: " + (getSuccessProbability() * 100) + "%");
+        System.out.println("  Timeout: " + (getFailWithoutResponseProbability() * 100) + "%");
+        System.out.println("  Crash: " + (getFailWithCrashProbability() * 100) + "%");
+        System.out.println("\nFACHLICHE FEHLER:");
+        System.out.println("  Produkt nicht verfügbar: " + (getProductNotAvailableProbability() * 100) + "%");
+        System.out.println("  Doppelte Produktanforderung: " + (getDuplicateProductProbability() * 100) + "%");
+        System.out.println("\nZEITEN:");
+        System.out.println("  Bestellverzögerung: " + getOrderDelay() + "ms");
+        System.out.println("  Verarbeitungszeit: " + getAverageProcessingTime() + "ms (±" + getProcessingTimeStdDev() + "ms)");
+        System.out.println("  Timeout: " + getTimeout() + "ms");
+        System.out.println("\nLAGER:");
+        System.out.println("  Initial-Bestand: " + getInitialStock());
         System.out.println("==============================\n");
     }
 }

@@ -110,7 +110,7 @@ public class MarketplaceApp {
                 int quantity = random.nextInt(3) + 1;
                 
                 // 10% Chance für doppelte Produktanforderung (fachlicher Fehler)
-                if (random.nextDouble() < 0.1 && i > 0) {
+                if (random.nextDouble() < ConfigLoader.getDuplicateProductProbability() && i > 0) {
                     // Nimm ein bereits verwendetes Produkt
                     String duplicateProduct = products.get(0).productId;
                     products.add(new OrderRequest.ProductOrder(duplicateProduct, quantity));

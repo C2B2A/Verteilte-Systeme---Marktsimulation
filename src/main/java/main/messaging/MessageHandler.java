@@ -1,45 +1,37 @@
 package main.messaging;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonSyntaxException;
-
 /**
- * Einfacher Handler für JSON-Nachrichten
+ * Message Handler - nutzt jetzt SimpleMessageFormat
+ * KEINE externen Libraries!
  */
 public class MessageHandler {
-    private static final Gson gson = new Gson();
     
-    // Nachricht zu JSON
+    /**
+     * Konvertiert eine Nachricht zu String
+     */
     public static String toJson(Object message) {
-        return gson.toJson(message);
+        return MessageFormat.format(message);
     }
     
-    // JSON zu Nachricht
-    public static <T> T fromJson(String json, Class<T> clazz) {
-        try {
-            return gson.fromJson(json, clazz);
-        } catch (JsonSyntaxException e) {
-            System.err.println("Fehler beim Parsen: " + e.getMessage());
-            return null;
+    /**
+     * Parst einen String zu einer Nachricht
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T fromJson(String message, Class<T> clazz) {
+        Object parsed = MessageFormat.parse(message);
+        
+        // Type-Check
+        if (parsed != null && clazz.isInstance(parsed)) {
+            return (T) parsed;
         }
+        
+        return null;
     }
     
-    // Nachrichtentyp aus JSON ermitteln (simpel über Feld-Check)
-    public static String getMessageType(String json) {
-        if (json.contains("\"products\"") && json.contains("\"customerId\"")) {
-            return "OrderRequest";
-        } else if (json.contains("\"quantity\"") && json.contains("\"marketplaceId\"")) {
-            return "ReserveRequest";
-        } else if (json.contains("\"status\"") && json.contains("\"sellerId\"")) {
-            return "ReserveResponse";
-        } else if (json.contains("\"orderId\"") && json.contains("\"productId\"") && json.contains("\"sellerId\"")) {
-            if (json.contains("CANCELLED")) {
-                return "CancelResponse";
-            }
-            return "CancelRequest";
-        } else if (json.contains("\"orderId\"") && json.contains("\"sellerId\"")) {
-            return "ConfirmRequest";
-        }
-        return "Unknown";
+    /**
+     * Ermittelt den Nachrichtentyp
+     */
+    public static String getMessageType(String message) {
+        return MessageFormat.getMessageType(message);
     }
 }
