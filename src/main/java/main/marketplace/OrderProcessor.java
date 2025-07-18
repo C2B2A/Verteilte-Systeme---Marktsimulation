@@ -13,7 +13,7 @@ import java.util.concurrent.*;
 
 /**
  * Verarbeitet Bestellungen und kommuniziert mit Sellern
- * Nutzt Thread-Pool für parallele Reservierungen
+ * Unterstützt Failover wenn ein Produkt bei mehreren Sellern verfügbar ist
  */
 public class OrderProcessor {
     private final String marketplaceId;
@@ -22,7 +22,7 @@ public class OrderProcessor {
     private final ExecutorService executor;
     private final Map<String, Integer> sellerPorts;
     
-    // Seller-Konfiguration (würde normalerweise aus Config kommen)
+    // Seller-Port-Konfiguration
     private static final Map<String, Integer> DEFAULT_SELLERS = Map.of(
         "S1", 5556,
         "S2", 5557,
@@ -30,6 +30,19 @@ public class OrderProcessor {
         "S4", 5559,
         "S5", 5560
     );
+    
+    // Produkt-zu-Seller Mapping (korrekte Verteilung)
+    private static final Map<String, List<String>> PRODUCT_SELLER_MAP = Map.of(
+        "PA", Arrays.asList("S1"),
+        "PB", Arrays.asList("S1", "S5"),  // B bei S1 und S5!
+        "PC", Arrays.asList("S2", "S3"),  // C bei S2 und S3!
+        "PD", Arrays.asList("S2", "S4"),  // D bei S2 und S4!
+        "PE", Arrays.asList("S3", "S4"),  // E bei S3 und S4!
+        "PF", Arrays.asList("S5")
+    );
+    
+    // Verfolgt bereits versuchte Seller für Failover
+    private final Map<String, Set<String>> triedSellers = new ConcurrentHashMap<>();
     
     public OrderProcessor(String marketplaceId, SagaManager sagaManager) {
         this.marketplaceId = marketplaceId;
@@ -48,28 +61,20 @@ public class OrderProcessor {
         // Starte SAGA
         SagaManager.OrderSaga saga = sagaManager.startSaga(order);
         
-        // Ermittle welcher Seller welches Produkt hat
-        Map<String, String> productToSeller = mapProductsToSellers(order);
+        // Initialisiere Tracking für diese Order
+        String orderKey = order.orderId;
+        triedSellers.put(orderKey, ConcurrentHashMap.newKeySet());
         
         // Sende parallele Reservierungsanfragen
         for (OrderRequest.ProductOrder productOrder : order.products) {
-            String sellerId = productToSeller.get(productOrder.productId);
-            if (sellerId == null) {
-                System.err.println("[OrderProcessor] Kein Seller für Produkt " + 
-                                 productOrder.productId);
-                sagaManager.handleReservationTimeout(order.orderId, productOrder.productId);
-                continue;
-            }
-            
             // Registriere ausstehende Reservierung
             sagaManager.registerPendingReservation(order.orderId, productOrder.productId);
             
-            // Sende asynchron
-            executor.submit(() -> sendReservationRequest(
+            // Starte Reservierungsversuch
+            executor.submit(() -> tryReserveProduct(
                 order.orderId, 
                 productOrder.productId, 
-                productOrder.quantity, 
-                sellerId
+                productOrder.quantity
             ));
         }
         
@@ -78,15 +83,58 @@ public class OrderProcessor {
     }
     
     /**
-     * Sendet Reservierungsanfrage an einen Seller
+     * Versucht ein Produkt zu reservieren, mit Failover zu alternativen Sellern
      */
-    private void sendReservationRequest(String orderId, String productId, 
-                                      int quantity, String sellerId) {
+    private void tryReserveProduct(String orderId, String productId, int quantity) {
+        List<String> possibleSellers = PRODUCT_SELLER_MAP.getOrDefault(productId, new ArrayList<>());
+        
+        if (possibleSellers.isEmpty()) {
+            System.err.println("[OrderProcessor] Kein Seller für Produkt " + productId);
+            sagaManager.handleReservationTimeout(orderId, productId);
+            return;
+        }
+        
+        String orderKey = orderId;
+        Set<String> tried = triedSellers.get(orderKey);
+        
+        // Versuche alle möglichen Seller
+        for (String sellerId : possibleSellers) {
+            if (tried.contains(sellerId + "-" + productId)) {
+                continue; // Bereits versucht
+            }
+            
+            tried.add(sellerId + "-" + productId);
+            
+            System.out.println("[OrderProcessor] Versuche Seller " + sellerId + 
+                             " für Produkt " + productId);
+            
+            boolean success = sendReservationRequest(orderId, productId, quantity, sellerId);
+            
+            if (success) {
+                // Erfolgreich reserviert oder endgültig fehlgeschlagen
+                return;
+            }
+            
+            // Bei Timeout oder temporärem Fehler: Nächsten Seller versuchen
+            System.out.println("[OrderProcessor] Seller " + sellerId + 
+                             " nicht verfügbar, versuche Alternative...");
+        }
+        
+        // Alle Seller versucht, keiner konnte liefern
+        System.err.println("[OrderProcessor] Kein Seller konnte " + productId + " liefern");
+        sagaManager.handleReservationTimeout(orderId, productId);
+    }
+    
+    /**
+     * Sendet Reservierungsanfrage an einen spezifischen Seller
+     * @return true wenn erfolgreich reserviert oder endgültig fehlgeschlagen
+     */
+    private boolean sendReservationRequest(String orderId, String productId, 
+                                         int quantity, String sellerId) {
         Integer port = sellerPorts.get(sellerId);
         if (port == null) {
             System.err.println("[OrderProcessor] Unbekannter Seller: " + sellerId);
-            sagaManager.handleReservationTimeout(orderId, productId);
-            return;
+            return false;
         }
         
         try {
@@ -111,24 +159,37 @@ public class OrderProcessor {
             // Warte auf Antwort
             String response = socket.recvStr();
             if (response == null || response.isEmpty()) {
-                // Timeout
+                // Timeout - Seller nicht erreichbar
                 System.out.println("[OrderProcessor] Timeout von " + sellerId);
-                sagaManager.handleReservationTimeout(orderId, productId);
+                socket.close();
+                return false; // Nächsten Seller versuchen
             } else {
                 // Antwort erhalten
                 ReserveResponse reserveResponse = MessageHandler.fromJson(
                     response, ReserveResponse.class);
                 if (reserveResponse != null) {
                     sagaManager.handleReservationResponse(reserveResponse);
+                    
+                    // Bei FAILED mit Grund "nicht im Sortiment" -> nächsten Seller versuchen
+                    if ("FAILED".equals(reserveResponse.status) && 
+                        "Produkt nicht im Sortiment".equals(reserveResponse.reason)) {
+                        socket.close();
+                        return false; // Nächsten Seller versuchen
+                    }
+                    
+                    socket.close();
+                    return true; // Erfolgreich oder endgültig fehlgeschlagen
                 }
             }
             
             socket.close();
             
         } catch (ZMQException e) {
-            System.err.println("[OrderProcessor] ZMQ Fehler: " + e.getMessage());
-            sagaManager.handleReservationTimeout(orderId, productId);
+            System.err.println("[OrderProcessor] ZMQ Fehler bei " + sellerId + ": " + e.getMessage());
+            return false; // Nächsten Seller versuchen
         }
+        
+        return false;
     }
     
     /**
@@ -136,7 +197,7 @@ public class OrderProcessor {
      */
     private void monitorOrder(SagaManager.OrderSaga saga) {
         // Warte bis alle Reservierungen abgeschlossen sind
-        int maxWaitTime = ConfigLoader.getTimeout() * 2;
+        int maxWaitTime = ConfigLoader.getTimeout() * 3; // Mehr Zeit für Failover
         long startTime = System.currentTimeMillis();
         
         while (!saga.isComplete() && 
@@ -148,6 +209,9 @@ public class OrderProcessor {
                 return;
             }
         }
+        
+        // Cleanup Tracking
+        triedSellers.remove(saga.orderId);
         
         // Prüfe Status
         if (saga.status == SagaManager.SagaStatus.RESERVED) {
@@ -272,25 +336,6 @@ public class OrderProcessor {
         } catch (ZMQException e) {
             System.err.println("[OrderProcessor] Fehler beim Rollback: " + e.getMessage());
         }
-    }
-    
-    /**
-     * Mappt Produkte zu Sellern (vereinfacht)
-     */
-    private Map<String, String> mapProductsToSellers(OrderRequest order) {
-        Map<String, String> mapping = new HashMap<>();
-        
-        // Einfache Zuordnung: Produkt-ID enthält Seller-ID
-        // z.B. "PS1A" -> Seller S1
-        for (OrderRequest.ProductOrder product : order.products) {
-            String productId = product.productId;
-            if (productId.startsWith("PS") && productId.length() >= 4) {
-                String sellerId = productId.substring(1, 3); // "PS1A" -> "S1"
-                mapping.put(productId, sellerId);
-            }
-        }
-        
-        return mapping;
     }
     
     /**

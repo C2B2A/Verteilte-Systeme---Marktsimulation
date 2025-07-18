@@ -99,6 +99,10 @@ Verteilte-Systeme---Marktsimulation/
 Der target/ Ordner ist der Maven-Arbeitsbereich
 diesen NIE committen - steht in .gitignore, wird beim Build automatisch erstellt
 ```
+Customer C1 ─┐
+             ├─[PUSH/PULL]─> Marketplace M1 ─┐
+Customer C2 ─┤                               ├─[REQ/REP]─> Seller S1-S5
+             └─[PUSH/PULL]─> Marketplace M2 ─┘
 
 ## 🔧 Entwicklung
 

@@ -48,11 +48,34 @@ timeout /t 1 /nobreak > nul
 start "Marketplace M2" cmd /k java -jar %JAR% --mode=marketplace --id=M2
 
 echo.
-echo ===================================
-echo System gestartet!
+echo Warte 2 Sekunden auf Marketplace-Start...
+timeout /t 2 /nobreak > nul
+
 echo.
-echo Seller auf Ports 5556-5560
-echo Marketplaces M1 und M2
+echo Starte 2 Customers...
+echo.
+
+REM Starte Customer 1-2
+start "Customer C1" cmd /k java -jar %JAR% --mode=customer --id=C1
+timeout /t 1 /nobreak > nul
+
+start "Customer C2" cmd /k java -jar %JAR% --mode=customer --id=C2
+
+echo.
+echo ===================================
+echo System komplett gestartet!
+echo.
+echo Architektur:
+echo   2 Customers (C1, C2)
+echo   2 Marketplaces (M1:5570, M2:5571)
+echo   5 Seller (S1-S5 auf Ports 5556-5560)
+echo.
+echo Produktverteilung:
+echo   S1: PA, PB
+echo   S2: PC, PD
+echo   S3: PC, PE
+echo   S4: PD, PE
+echo   S5: PF, PB
 echo.
 echo Zum Beenden alle Fenster schließen
 echo oder Ctrl+C in den Fenstern

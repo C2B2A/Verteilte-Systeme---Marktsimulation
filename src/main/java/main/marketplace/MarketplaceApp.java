@@ -1,37 +1,43 @@
 package main.marketplace;
 
+import main.messaging.MessageHandler;
 import main.messaging.MessageTypes.*;
 import main.simulation.ConfigLoader;
+import org.zeromq.SocketType;
+import org.zeromq.ZContext;
+import org.zeromq.ZMQ;
+
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Hauptklasse des Marketplace
- * Generiert Bestellungen und koordiniert mit OrderProcessor
+ * Empfängt Bestellungen von Customers und koordiniert mit OrderProcessor
  */
 public class MarketplaceApp {
     private final String marketplaceId;
+    private final int port;
     private final SagaManager sagaManager;
     private final OrderProcessor orderProcessor;
     private final ScheduledExecutorService scheduler;
-    private final AtomicInteger orderCounter;
+    private final ZContext context;
     private boolean running = true;
     
-    // Verfügbare Produkte im System
-    private static final List<String> AVAILABLE_PRODUCTS = Arrays.asList(
-        "PS1A", "PS1B", "PS2A", "PS2B", "PS3A", "PS3B", 
-        "PS4A", "PS4B", "PS5A", "PS5B"
+    // Port-Zuordnung für Marketplaces
+    private static final Map<String, Integer> MARKETPLACE_PORTS = Map.of(
+        "M1", 5570,
+        "M2", 5571
     );
     
     public MarketplaceApp(String marketplaceId) {
         this.marketplaceId = marketplaceId;
+        this.port = MARKETPLACE_PORTS.getOrDefault(marketplaceId, 5570);
         this.sagaManager = new SagaManager();
         this.orderProcessor = new OrderProcessor(marketplaceId, sagaManager);
         this.scheduler = Executors.newScheduledThreadPool(2);
-        this.orderCounter = new AtomicInteger(0);
+        this.context = new ZContext();
     }
     
     /**
@@ -41,23 +47,20 @@ public class MarketplaceApp {
         System.out.println("\n╔════════════════════════════════════════════╗");
         System.out.println("║      MARKETPLACE " + marketplaceId + " GESTARTET             ║");
         System.out.println("╠════════════════════════════════════════════╣");
-        System.out.println("║ Seller S1: PS1A (Produkt A), PS1B (Produkt B) ║");
-        System.out.println("║ Seller S2: PS2A (Produkt A), PS2B (Produkt B) ║");
-        System.out.println("║ Seller S3: PS3A (Produkt A), PS3B (Produkt B) ║");
-        System.out.println("║ Seller S4: PS4A (Produkt A), PS4B (Produkt B) ║");
-        System.out.println("║ Seller S5: PS5A (Produkt A), PS5B (Produkt B) ║");
+        System.out.println("║ Port: " + port + " (für Customer-Bestellungen)     ║");
+        System.out.println("║                                            ║");
+        System.out.println("║ Produktverteilung:                         ║");
+        System.out.println("║ Seller S1: PA (Produkt A), PB (Produkt B) ║");
+        System.out.println("║ Seller S2: PC (Produkt C), PD (Produkt D) ║");
+        System.out.println("║ Seller S3: PC (Produkt C), PE (Produkt E) ║");
+        System.out.println("║ Seller S4: PD (Produkt D), PE (Produkt E) ║");
+        System.out.println("║ Seller S5: PF (Produkt F), PB (Produkt B) ║");
         System.out.println("╚════════════════════════════════════════════╝\n");
         
         ConfigLoader.printConfig();
         
-        // Starte Order-Generator
-        int orderDelay = ConfigLoader.getOrderDelay();
-        scheduler.scheduleWithFixedDelay(
-            this::generateOrder, 
-            1000, // Initial delay
-            orderDelay, 
-            TimeUnit.MILLISECONDS
-        );
+        // Starte Order-Receiver in eigenem Thread
+        scheduler.execute(this::receiveOrders);
         
         // Starte Status-Monitor
         scheduler.scheduleWithFixedDelay(
@@ -82,69 +85,57 @@ public class MarketplaceApp {
     }
     
     /**
-     * Generiert eine zufällige Bestellung
+     * Empfängt Bestellungen von Customers via PULL Socket
      */
-    private void generateOrder() {
-        try {
-            String orderId = marketplaceId + "-ORD" + 
-                           String.format("%04d", orderCounter.incrementAndGet());
-            String customerId = "C" + (new Random().nextInt(100) + 1);
-            
-            // Zufällige Anzahl von Produkten (1-3)
-            Random random = new Random();
-            int productCount = random.nextInt(3) + 1;
-            
-            List<OrderRequest.ProductOrder> products = new ArrayList<>();
-            Set<String> usedProducts = new HashSet<>();
-            
-            for (int i = 0; i < productCount; i++) {
-                // Wähle zufälliges Produkt (keine Duplikate)
-                String productId;
-                do {
-                    productId = AVAILABLE_PRODUCTS.get(
-                        random.nextInt(AVAILABLE_PRODUCTS.size()));
-                } while (usedProducts.contains(productId));
-                usedProducts.add(productId);
-                
-                // Zufällige Menge (1-3)
-                int quantity = random.nextInt(3) + 1;
-                
-                // 10% Chance für doppelte Produktanforderung (fachlicher Fehler)
-                if (random.nextDouble() < ConfigLoader.getDuplicateProductProbability() && i > 0) {
-                    // Nimm ein bereits verwendetes Produkt
-                    String duplicateProduct = products.get(0).productId;
-                    products.add(new OrderRequest.ProductOrder(duplicateProduct, quantity));
-                    System.out.println("  WARNUNG: Doppelte Produktanforderung simuliert!");
-                    break;
-                } else {
-                    products.add(new OrderRequest.ProductOrder(productId, quantity));
+    private void receiveOrders() {
+        ZMQ.Socket receiver = context.createSocket(SocketType.PULL);
+        receiver.bind("tcp://127.0.0.1:" + port);
+        
+        System.out.println("[" + marketplaceId + "] Warte auf Customer-Bestellungen auf Port " + port);
+        
+        while (running) {
+            try {
+                String message = receiver.recvStr();
+                if (message != null && !message.isEmpty()) {
+                    OrderRequest order = MessageHandler.fromJson(message, OrderRequest.class);
+                    if (order != null) {
+                        System.out.println("\n========================================");
+                        System.out.println("[" + marketplaceId + "] Bestellung empfangen von " + order.customerId);
+                        System.out.println("Order ID: " + order.orderId);
+                        System.out.println("Produkte:");
+                        for (OrderRequest.ProductOrder p : order.products) {
+                            // Finde mögliche Seller für dieses Produkt
+                            List<String> possibleSellers = findSellersForProduct(p.productId);
+                            System.out.println("  - " + p.productId + " x " + p.quantity + 
+                                             " (verfügbar bei: " + String.join(", ", possibleSellers) + ")");
+                        }
+                        System.out.println("========================================");
+                        
+                        // Verarbeite Bestellung
+                        orderProcessor.processOrder(order);
+                    }
                 }
+            } catch (Exception e) {
+                System.err.println("[" + marketplaceId + "] Fehler beim Empfangen: " + e.getMessage());
             }
-            
-            // Erstelle Bestellung
-            OrderRequest order = new OrderRequest();
-            order.orderId = orderId;
-            order.customerId = customerId;
-            order.products = products;
-            
-            System.out.println("\n========================================");
-            System.out.println("[" + marketplaceId + "] Neue Bestellung generiert:");
-            System.out.println("Order ID: " + orderId);
-            System.out.println("Kunde: " + customerId);
-            System.out.println("Produkte:");
-            for (OrderRequest.ProductOrder p : products) {
-                String sellerId = p.productId.substring(1, 3);
-                System.out.println("  - " + p.productId + " x " + p.quantity + 
-                                 " (von Seller " + sellerId + ")");
-            }
-            System.out.println("========================================");
-            
-            // Verarbeite Bestellung
-            orderProcessor.processOrder(order);
-            
-        } catch (Exception e) {
-            System.err.println("[" + marketplaceId + "] Fehler beim Generieren: " + e.getMessage());
         }
+        
+        receiver.close();
+    }
+    
+    /**
+     * Findet alle Seller die ein bestimmtes Produkt haben
+     */
+    private List<String> findSellersForProduct(String productId) {
+        Map<String, List<String>> productSellerMap = new HashMap<>();
+        productSellerMap.put("PA", Arrays.asList("S1"));
+        productSellerMap.put("PB", Arrays.asList("S1", "S5"));
+        productSellerMap.put("PC", Arrays.asList("S2", "S3"));
+        productSellerMap.put("PD", Arrays.asList("S2", "S4"));
+        productSellerMap.put("PE", Arrays.asList("S3", "S4"));
+        productSellerMap.put("PF", Arrays.asList("S5"));
+        
+        return productSellerMap.getOrDefault(productId, new ArrayList<>());
     }
     
     /**
@@ -155,6 +146,7 @@ public class MarketplaceApp {
         running = false;
         scheduler.shutdown();
         orderProcessor.shutdown();
+        context.close();
         
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
@@ -174,7 +166,7 @@ public class MarketplaceApp {
         String marketplaceId = "M1";
         String configFile = null;
         
-        // Parse arguments - unterstütze beide Formate
+        // Parse arguments
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("--id=")) {
                 marketplaceId = args[i].substring(5);

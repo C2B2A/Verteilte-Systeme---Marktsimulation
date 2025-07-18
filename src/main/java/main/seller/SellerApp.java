@@ -11,8 +11,8 @@ import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 
 /**
- * Vollständiger Seller mit Inventory und Fehlersimulation
- * Start: java -jar <jar> --mode=seller --id=S1 --port=5556
+ * Seller mit korrekter Produktverteilung laut Anforderung
+ * S1: A,B | S2: C,D | S3: C,E | S4: D,E | S5: F,B
  */
 public class SellerApp {
     private final String sellerId;
@@ -25,12 +25,43 @@ public class SellerApp {
         this.port = port;
         this.inventory = new Inventory();
         
-        // Initialisiere 2 Produkte pro Seller
+        // Initialisiere Produkte gemäß Anforderung
+        initializeProducts();
+    }
+    
+    /**
+     * Initialisiert die korrekten Produkte für jeden Seller
+     */
+    private void initializeProducts() {
         int initialStock = ConfigLoader.getInitialStock();
-        inventory.addProduct(new Product("P" + sellerId + "A", 
-                           "Produkt A von Seller " + sellerId, initialStock));
-        inventory.addProduct(new Product("P" + sellerId + "B", 
-                           "Produkt B von Seller " + sellerId, initialStock - 2));
+        
+        switch (sellerId) {
+            case "S1":
+                inventory.addProduct(new Product("PA", "Produkt A", initialStock));
+                inventory.addProduct(new Product("PB", "Produkt B", initialStock - 2));
+                break;
+            case "S2":
+                inventory.addProduct(new Product("PC", "Produkt C", initialStock));
+                inventory.addProduct(new Product("PD", "Produkt D", initialStock - 2));
+                break;
+            case "S3":
+                inventory.addProduct(new Product("PC", "Produkt C", initialStock));
+                inventory.addProduct(new Product("PE", "Produkt E", initialStock - 2));
+                break;
+            case "S4":
+                inventory.addProduct(new Product("PD", "Produkt D", initialStock));
+                inventory.addProduct(new Product("PE", "Produkt E", initialStock - 2));
+                break;
+            case "S5":
+                inventory.addProduct(new Product("PF", "Produkt F", initialStock));
+                inventory.addProduct(new Product("PB", "Produkt B", initialStock - 2));
+                break;
+            default:
+                // Fallback für unbekannte Seller
+                System.err.println("Warnung: Unbekannte Seller-ID " + sellerId);
+                inventory.addProduct(new Product("PX", "Produkt X", initialStock));
+                inventory.addProduct(new Product("PY", "Produkt Y", initialStock - 2));
+        }
     }
     
     public void start() {
@@ -39,15 +70,22 @@ public class SellerApp {
         System.out.println("╠════════════════════════════════════════════╣");
         System.out.println("║ Port: " + port + "                                  ║");
         System.out.println("║ Produkte:                                  ║");
-        System.out.println("║   - P" + sellerId + "A (Produkt A): Bestand " + 
-                         String.format("%-2d", inventory.getProduct("P" + sellerId + "A").getStock()) + "         ║");
-        System.out.println("║   - P" + sellerId + "B (Produkt B): Bestand " + 
-                         String.format("%-2d", inventory.getProduct("P" + sellerId + "B").getStock()) + "         ║");
+        
+        // Zeige alle Produkte des Sellers
+        for (Product p : inventory.getAllProducts().values()) {
+            System.out.println("║   - " + p.getProductId() + " (" + p.getName() + "): Bestand " + 
+                             String.format("%-2d", p.getStock()) + "      ║");
+        }
+        
         System.out.println("╚════════════════════════════════════════════╝\n");
+        
+        ConfigLoader.printConfig();
         
         try (ZContext context = new ZContext()) {
             ZMQ.Socket socket = context.createSocket(SocketType.REP);
             socket.bind("tcp://127.0.0.1:" + port);
+            
+            System.out.println("[" + sellerId + "] Bereit für Anfragen auf Port " + port);
             
             while (running) {
                 try {
@@ -114,7 +152,7 @@ public class SellerApp {
         }
     }
     
-     private String handleReserve(ReserveRequest req) {
+    private String handleReserve(ReserveRequest req) {
         ReserveResponse response = new ReserveResponse();
         response.orderId = req.orderId;
         response.productId = req.productId;
@@ -125,11 +163,12 @@ public class SellerApp {
         // Fachlicher Fehler 1: Unbekanntes Produkt
         if (product == null) {
             response.status = "FAILED";
-            response.reason = "Produkt nicht bekannt";
-            System.out.println("[" + sellerId + "] ✗ FACHLICHER FEHLER: Unbekanntes Produkt " + req.productId);
+            response.reason = "Produkt nicht im Sortiment";
+            System.out.println("[" + sellerId + "] ✗ Produkt " + req.productId + 
+                             " nicht im Sortiment (habe nur: " + 
+                             String.join(", ", inventory.getAllProducts().keySet()) + ")");
         } 
         // Fachlicher Fehler 2: Produkt "versehentlich" nicht verfügbar
-        // Nur prüfen wenn technisch alles OK ist (SUCCESS)
         else if (ErrorSimulator.getBusinessError() == ErrorSimulator.BusinessError.PRODUCT_UNAVAILABLE) {
             response.status = "FAILED";
             response.reason = "Produkt temporär nicht verfügbar";
@@ -147,7 +186,7 @@ public class SellerApp {
         else {
             response.status = "FAILED";
             response.reason = "Nicht genug auf Lager";
-            System.out.println("[" + sellerId + "] ✗ FACHLICHER FEHLER: Nicht genug auf Lager " +
+            System.out.println("[" + sellerId + "] ✗ Nicht genug auf Lager " +
                              "(Angefordert: " + req.quantity + ", Verfügbar: " + product.getStock() + ")");
         }
         
@@ -166,6 +205,7 @@ public class SellerApp {
             inventory.printStatus();
         } else {
             response.status = "FAILED";
+            System.out.println("[" + sellerId + "] ✗ Stornierung fehlgeschlagen für Order " + req.orderId);
         }
         
         return MessageHandler.toJson(response);
@@ -183,7 +223,7 @@ public class SellerApp {
         int port = 5556;
         String configFile = null;
         
-        // Parse arguments - unterstütze beide Formate
+        // Parse arguments
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("--id=")) {
                 sellerId = args[i].substring(5);
@@ -204,7 +244,6 @@ public class SellerApp {
         if (configFile != null) {
             ConfigLoader.loadConfig(configFile);
         }
-        ConfigLoader.printConfig();
         
         // Seller starten
         SellerApp seller = new SellerApp(sellerId, port);
