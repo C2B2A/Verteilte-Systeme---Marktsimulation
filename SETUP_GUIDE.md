@@ -1,31 +1,33 @@
-# 🚀 Setup-Anleitung für das Marketplace Projekt
+# User manual for the marketplace
 
-## Voraussetzungen
-- **Java 17** oder höher installiert ([Download](https://adoptium.net/))
-- **Java Development Kit - JDK** muss installiert sein
-- **Git** installiert
-- Keine Maven-Installation nötig! (Maven Wrapper ist dabei)
+## Requirements
+- **Java 17** or higher installed ([Download](https://adoptium.net/))
+- **Java Development Kit - JDK** has to be installed
+- **Git** installed
+- No Maven installation needed (Maven wrappers are implemented)
 
 ## Quick Start ------------------------------
-## 1️⃣ Projekt klonen
+## Clone project
 git clone <repository-url>
 cd Verteilte-Systeme---Marktsimulation
 
-## 2️⃣ Projekt bauen
-**Sofern eine JDK installiert ist oder neu wurde, muss die IDE neu geöffnet werden. Danach warten, bis "Java: Ready" erscheint!**
+## Build project
+**If a JDK is installed or just has been installed the IDE has to be restartet. Then wait until "Java: Ready" appears!**
 ### Windows:
 ```cmd
 build clean install
 ```
 ### Mac/Linux:
 ```bash/cmd?
-chmod +x mvnw    # Nur beim ersten Mal nötig!
+chmod +x mvnw     #only necessary the first time
 ./mvnw clean install
 ```
 
-**Beim ersten Mal:** Der Maven Wrapper lädt automatisch Maven herunter (~10MB). Kann kurz dauern, danach sollte alles passen.
+**First time:** The Maven wrapper automatically installs everything. Can take a short time, after this everything should be set.
 
-## 3️⃣ Projekt ausführen - über Terminal
+## Execute project over terminal
+--> start-system.bat
+or
 ```bash
 # Marketplace starten
 java -jar target/marktsimulation-1.0.0-jar-with-dependencies.jar --mode=marketplace --instance=1
@@ -96,45 +98,36 @@ Verteilte-Systeme---Marktsimulation/
 └── 📁 target/                          # Maven Build-Output (AUTOMATISCH ERSTELLT)
     └── 📄 marktsimulation-1.0.0-jar-with-dependencies.jar
 
-Der target/ Ordner ist der Maven-Arbeitsbereich
-diesen NIE committen - steht in .gitignore, wird beim Build automatisch erstellt
+The target folder is the maven directory.
+Never commit this - is in .gitignore, is automatically built
 ```
-Customer C1 ─┐
-             ├─[PUSH/PULL]─> Marketplace M1 ─┐
-Customer C2 ─┤                               ├─[REQ/REP]─> Seller S1-S5
-             └─[PUSH/PULL]─> Marketplace M2 ─┘
 
-## 🔧 Entwicklung
+## Development
 
-### Code ändern und testen
-# Nach Änderungen neu bauen
+### Change and test code
+# rebuild after changes
 
 # Windows (mit build.cmd):
-build clean compile     # Nur kompilieren (schnell)
-build clean install     # Komplett bauen mit JAR
+build clean compile     # only compile (fast)
+build clean install     # complete build with JAR
 
-# Windows (alternativ):
+# Windows (alternatively):
 mvnw.cmd -Dmaven.multiModuleProjectDirectory=%CD% clean compile
 
 # Mac/Linux:
-./mvnw clean compile     # Nur kompilieren
-./mvnw clean install     # Komplett bauen
+./mvnw clean compile     # only compile
+./mvnw clean install     # build completely
 
 # FAQ
-Was macht clean install?
+What does clean install do?
 
     clean: Löscht alte Build-Dateien
     install: Kompiliert, testet und erstellt die ausführbare JAR
 
-Unterschied zwischen compile und install?
+Why build.cmd on windows?
 
-    compile: Nur Code prüfen/kompilieren (schnell)
-    install: Vollständiger Build mit JAR-Erstellung
-
-Warum build.cmd auf Windows?
-
-    Vereinfacht den Maven-Aufruf
-    Verhindert den "multiModuleProjectDirectory" Fehler
+    Simplifies Maven call
+    Prevents "multiModuleProjectDirectory" error
 
 ---
-**Tipp:** Alle Maven-Befehle funktionieren mit dem Wrapper genauso wie mit normalem Maven, nur mit `mvnw` bzw. `mvnw.cmd` statt `mvn`.
+**Tip:** All Maven commands work with the wrapper just like with normal Maven, only with `mvnw` or. `mvnw.cmd` instead of `mvn`.

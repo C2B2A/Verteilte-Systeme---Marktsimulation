@@ -1,4 +1,4 @@
-# Dockerfile.marketplace
+# Dockerfile.customer
 FROM openjdk:17-jre-slim
 
 WORKDIR /app
@@ -7,11 +7,10 @@ WORKDIR /app
 COPY target/marktsimulation-1.0.0-jar-with-dependencies.jar app.jar
 COPY config/config.properties config/
 
-# Marketplace Ports
-EXPOSE 5570 5571
+# Keine exponierten Ports - Customer nutzt nur ausgehende Verbindungen
 
 # Environment Variable für ID
-ENV MARKETPLACE_ID=M1
+ENV CUSTOMER_ID=C1
 
 # Starte mit mode und id parameter
-ENTRYPOINT ["sh", "-c", "java -jar app.jar --mode=marketplace --id=${MARKETPLACE_ID}"]
+ENTRYPOINT ["sh", "-c", "java -jar app.jar --mode=customer --id=${CUSTOMER_ID}"]

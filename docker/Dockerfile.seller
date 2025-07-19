@@ -1,3 +1,4 @@
+# Dockerfile.seller
 FROM openjdk:17-jre-slim
 
 WORKDIR /app
@@ -6,7 +7,12 @@ WORKDIR /app
 COPY target/marktsimulation-1.0.0-jar-with-dependencies.jar app.jar
 COPY config/config.properties config/
 
-EXPOSE 5556
+# Seller Ports
+EXPOSE 5556 5557 5558 5559 5560
 
-# Starte mit mode parameter
-ENTRYPOINT ["java", "-jar", "app.jar", "--mode=seller"]
+# Environment Variables
+ENV SELLER_ID=S1
+ENV SELLER_PORT=5556
+
+# Starte mit mode, id und port parameter
+ENTRYPOINT ["sh", "-c", "java -jar app.jar --mode=seller --id=${SELLER_ID} --port=${SELLER_PORT}"]

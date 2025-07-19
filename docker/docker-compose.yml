@@ -1,23 +1,131 @@
-version: '3'
+version: '3.8'
+
+networks:
+  marketplace-net:
+    driver: bridge
+
 services:
-  marketplace1:
-    build: 
-      context: .
-      dockerfile: docker/Dockerfile.marketplace
-    command: ["--instance=1"]
-    ports:
-      - "5555:5555"
-    
-  marketplace2:
-    build: 
-      context: .
-      dockerfile: docker/Dockerfile.marketplace
-    command: ["--instance=2"]
-    ports:
-      - "5556:5555"
-      
+  # Seller Services
   seller1:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.seller
-    command: ["--instance=1"]
+    container_name: seller-s1
+    environment:
+      - SELLER_ID=S1
+      - SELLER_PORT=5556
+    ports:
+      - "5556:5556"
+    networks:
+      - marketplace-net
+    restart: unless-stopped
+
+  seller2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.seller
+    container_name: seller-s2
+    environment:
+      - SELLER_ID=S2
+      - SELLER_PORT=5557
+    ports:
+      - "5557:5557"
+    networks:
+      - marketplace-net
+    restart: unless-stopped
+
+  seller3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.seller
+    container_name: seller-s3
+    environment:
+      - SELLER_ID=S3
+      - SELLER_PORT=5558
+    ports:
+      - "5558:5558"
+    networks:
+      - marketplace-net
+    restart: unless-stopped
+
+  seller4:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.seller
+    container_name: seller-s4
+    environment:
+      - SELLER_ID=S4
+      - SELLER_PORT=5559
+    ports:
+      - "5559:5559"
+    networks:
+      - marketplace-net
+    restart: unless-stopped
+
+  seller5:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.seller
+    container_name: seller-s5
+    environment:
+      - SELLER_ID=S5
+      - SELLER_PORT=5560
+    ports:
+      - "5560:5560"
+    networks:
+      - marketplace-net
+    restart: unless-stopped
+
+  # Marketplace Services
+  marketplace1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.marketplace
+    container_name: marketplace-m1
+    environment:
+      - MARKETPLACE_ID=M1
+    ports:
+      - "5570:5570"
+    networks:
+      - marketplace-net
+    depends_on:
+      - seller1
+      - seller2
+      - seller3
+      - seller4
+      - seller5
+    restart: unless-stopped
+
+  marketplace2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.marketplace
+    container_name: marketplace-m2
+    environment:
+      - MARKETPLACE_ID=M2
+    ports:
+      - "5571:5571"
+    networks:
+      - marketplace-net
+    depends_on:
+      - seller1
+      - seller2
+      - seller3
+      - seller4
+      - seller5
+    restart: unless-stopped
+
+  # Customer Service
+  customer1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.customer
+    container_name: customer-c1
+    environment:
+      - CUSTOMER_ID=C1
+    networks:
+      - marketplace-net
+    depends_on:
+      - marketplace1
+      - marketplace2
+    restart: unless-stopped
