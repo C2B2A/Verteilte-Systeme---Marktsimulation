@@ -36,67 +36,6 @@ java -jar target/marktsimulation-1.0.0-jar-with-dependencies.jar --mode=marketpl
 java -jar target/marktsimulation-1.0.0-jar-with-dependencies.jar --mode=seller --instance=1
 ```
 ------------------------------
-## 📁 Projektstruktur
-```
-Verteilte-Systeme---Marktsimulation/
-│
-├── 📄 pom.xml                          # Maven Konfiguration
-├── 📄 README.md                        # Projektbeschreibung
-├── 📄 SETUP_GUIDE.md                   # Setup-Anleitung
-├── 📄 build.cmd                        # Windows Build-Helfer
-├── 📄 start-system.bat                 # System-Start-Skript
-├── 📄 mvnw                             # Maven Wrapper (Linux/Mac)
-├── 📄 mvnw.cmd                         # Maven Wrapper (Windows)
-├── 📄 .gitignore                       # Git Ignore-Datei
-│
-├── 📁 .mvn/                            # Maven Wrapper Dateien
-│   └── 📁 wrapper/
-│       └── 📄 maven-wrapper.properties
-│
-├── 📁 config/                          # Konfigurationsdateien (MUSS ERSTELLT WERDEN!)
-│   └── 📄 config.properties            # Standard-Konfiguration
-│
-├── 📁 src/                             # Source Code
-│   └── 📁 main/
-│       └── 📁 java/
-│           └── 📁 main/                # Package: main
-│               │
-│               ├── 📄 MainLauncher.java        # Haupt-Einstiegspunkt
-│               ├── 📄 Customer.java            # Kunden-Klasse
-│               ├── 📄 TestClient.java          # Test-Client
-│               │
-│               ├── 📁 marketplace/             # Package: main.marketplace
-│               │   ├── 📄 MarketplaceApp.java  # Marketplace Hauptklasse
-│               │   ├── 📄 OrderProcessor.java  # Bestellverarbeitung
-│               │   └── 📄 SagaManager.java     # SAGA-Verwaltung
-│               │
-│               ├── 📁 seller/                  # Package: main.seller
-│               │   ├── 📄 SellerApp.java       # Seller Hauptklasse
-│               │   ├── 📄 Inventory.java       # Lagerbestand-Verwaltung
-│               │   ├── 📄 Product.java         # Produkt-Klasse
-│               │   └── 📄 TestSimpleSeller.java # Einfacher Test-Seller
-│               │
-│               ├── 📁 messaging/               # Package: main.messaging
-│               │   ├── 📄 MessageHandler.java  # JSON-Verarbeitung
-│               │   └── 📄 MessageTypes.java    # Nachrichtentypen
-│               │
-│               └── 📁 simulation/              # Package: main.simulation
-│                   ├── 📄 ConfigLoader.java    # Konfiguration laden
-│                   ├── 📄 ErrorSimulator.java  # Fehlersimulation
-│                   └── 📄 test.properties      # Test-Konfiguration
-│
-├── 📁 docker/                          # Docker-Dateien
-│   ├── 📄 Dockerfile.marketplace
-│   ├── 📄 Dockerfile.seller
-│   └── 📄 docker-compose.yml
-│
-├── 📁 docs/                            # Dokumentation (MUSS ERSTELLT WERDEN!)
-│   ├── 📄 Architektur.md              # Architekturbeschreibung
-│   ├── 📄 Fehlerbehandlung.md         # Fehlerdokumentation
-│   └── 📄 Testkonzept.md              # Testdokumentation
-│
-└── 📁 target/                          # Maven Build-Output (AUTOMATISCH ERSTELLT)
-    └── 📄 marktsimulation-1.0.0-jar-with-dependencies.jar
 
 The target folder is the maven directory.
 Never commit this - is in .gitignore, is automatically built
@@ -121,8 +60,8 @@ mvnw.cmd -Dmaven.multiModuleProjectDirectory=%CD% clean compile
 # FAQ
 What does clean install do?
 
-    clean: Löscht alte Build-Dateien
-    install: Kompiliert, testet und erstellt die ausführbare JAR
+    clean: deletes old build files
+    install: compiles, tests and build the JAR files
 
 Why build.cmd on windows?
 

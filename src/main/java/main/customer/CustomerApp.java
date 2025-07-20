@@ -29,7 +29,7 @@ public class CustomerApp {
     // Marketplace Ports für PULL Sockets
     private static final int[] MARKETPLACE_PORTS = {5570, 5571}; // M1, M2
     
-    // Verfügbare Produkte im System (korrekte Verteilung)
+    // Verfügbare Produkte im System
     private static final List<String> AVAILABLE_PRODUCTS = Arrays.asList(
         "PA", "PB", "PC", "PD", "PE", "PF"
     );
