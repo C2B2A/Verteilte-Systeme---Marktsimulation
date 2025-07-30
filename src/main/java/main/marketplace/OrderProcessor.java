@@ -21,6 +21,8 @@ public class OrderProcessor {
     private final ZContext context;
     private final ExecutorService executor;
     private final Map<String, Integer> sellerPorts;
+    private final ZMQ.Socket dealerSocket;
+    private final int networkLatencyMs = 50; // Simulierte Latenz (konfigurierbar)
     
     // Seller-Port-Konfiguration
     private static final Map<String, Integer> DEFAULT_SELLERS = Map.of(
@@ -47,6 +49,11 @@ public class OrderProcessor {
         this.context = new ZContext();
         this.executor = Executors.newFixedThreadPool(10);
         this.sellerPorts = new HashMap<>(DEFAULT_SELLERS);
+        this.dealerSocket = context.createSocket(SocketType.DEALER);
+        this.dealerSocket.setIdentity(marketplaceId.getBytes(ZMQ.CHARSET));
+        for (int port : sellerPorts.values()) {
+            this.dealerSocket.connect("tcp://localhost:" + port);
+        }
     }
     
     /**
@@ -113,66 +120,40 @@ public class OrderProcessor {
      * Sendet Reservierungsanfrage an einen spezifischen Seller
      * @return true wenn erfolgreich reserviert oder endgültig fehlgeschlagen
      */
-    private boolean sendReservationRequest(String orderId, String productId, 
-                                         int quantity, String sellerId) {
-        Integer port = sellerPorts.get(sellerId);
-        if (port == null) {
-            System.err.println("[OrderProcessor] Unbekannter Seller: " + sellerId);
-            return false;
-        }
-        
+    private boolean sendReservationRequest(String orderId, String productId, int quantity, String sellerId) {
         try {
-            // Erstelle Socket für diesen Request
-            ZMQ.Socket socket = context.createSocket(SocketType.REQ);
-            socket.setReceiveTimeOut(ConfigLoader.getTimeout());
-            socket.connect("tcp://localhost:" + port);
-            
-            // Erstelle Anfrage
+            Thread.sleep(networkLatencyMs); // Simuliere Netzwerklatenz
             ReserveRequest request = new ReserveRequest();
             request.orderId = orderId;
             request.productId = productId;
             request.quantity = quantity;
             request.marketplaceId = marketplaceId;
-            
-            // Sende
             String json = MessageHandler.toJson(request);
-            System.out.println("[OrderProcessor] Sende an " + sellerId + 
-                             " (Port " + port + "): " + json);
-            socket.send(json);
-            
-            // Warte auf Antwort
-            String response = socket.recvStr();
+            System.out.println("[OrderProcessor] Sende an " + sellerId + ": " + json);
+            dealerSocket.sendMore(sellerId);
+            dealerSocket.send(json);
+            // Antwort empfangen
+            byte[] replyId = dealerSocket.recv(0);
+            String response = dealerSocket.recvStr(0);
             if (response == null || response.isEmpty()) {
-                // Timeout - Seller nicht erreichbar
                 System.out.println("[OrderProcessor] Timeout von " + sellerId);
-                socket.close();
-                return false; // Nächsten Seller versuchen
+                return false;
             } else {
-                // Antwort erhalten
-                ReserveResponse reserveResponse = MessageHandler.fromJson(
-                    response, ReserveResponse.class);
+                ReserveResponse reserveResponse = MessageHandler.fromJson(response, ReserveResponse.class);
                 if (reserveResponse != null) {
                     sagaManager.handleReservationResponse(reserveResponse);
-                    
-                    // Bei FAILED mit Grund "nicht im Sortiment" -> nächsten Seller versuchen
-                    if ("FAILED".equals(reserveResponse.status) && 
-                        "Produkt nicht im Sortiment".equals(reserveResponse.reason)) {
-                        socket.close();
-                        return false; // Nächsten Seller versuchen
+                    if ("FAILED".equals(reserveResponse.status) && "Produkt nicht im Sortiment".equals(reserveResponse.reason)) {
+                        return false;
                     }
-                    
-                    socket.close();
-                    return true; // Erfolgreich oder endgültig fehlgeschlagen
+                    return true;
                 }
             }
-            
-            socket.close();
-            
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } catch (ZMQException e) {
             System.err.println("[OrderProcessor] ZMQ Fehler bei " + sellerId + ": " + e.getMessage());
-            return false; // Nächsten Seller versuchen
+            return false;
         }
-        
         return false;
     }
     
@@ -267,25 +248,19 @@ public class OrderProcessor {
      * Sendet Bestätigung an Seller
      */
     private void sendConfirmation(ConfirmRequest confirm, String sellerId) {
-        Integer port = sellerPorts.get(sellerId);
-        if (port == null) return;
-        
         try {
-            ZMQ.Socket socket = context.createSocket(SocketType.REQ);
-            socket.setReceiveTimeOut(ConfigLoader.getTimeout());
-            socket.connect("tcp://localhost:" + port);
-            
+            Thread.sleep(networkLatencyMs);
             String json = MessageHandler.toJson(confirm);
-            System.out.println("[OrderProcessor] Sende Bestätigung an " + 
-                             sellerId + ": " + json);
-            socket.send(json);
-            
-            String response = socket.recvStr();
+            System.out.println("[OrderProcessor] Sende Bestätigung an " + sellerId + ": " + json);
+            dealerSocket.sendMore(sellerId);
+            dealerSocket.send(json);
+            byte[] replyId = dealerSocket.recv(0);
+            String response = dealerSocket.recvStr(0);
             if (response != null && !response.isEmpty()) {
                 System.out.println("[OrderProcessor] Bestätigung erhalten von " + sellerId);
             }
-            
-            socket.close();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } catch (ZMQException e) {
             System.err.println("[OrderProcessor] Fehler bei Bestätigung: " + e.getMessage());
         }
@@ -295,25 +270,19 @@ public class OrderProcessor {
      * Sendet Stornierung an Seller
      */
     private void sendCancellation(CancelRequest cancel, String sellerId) {
-        Integer port = sellerPorts.get(sellerId);
-        if (port == null) return;
-        
         try {
-            ZMQ.Socket socket = context.createSocket(SocketType.REQ);
-            socket.setReceiveTimeOut(ConfigLoader.getTimeout());
-            socket.connect("tcp://localhost:" + port);
-            
+            Thread.sleep(networkLatencyMs);
             String json = MessageHandler.toJson(cancel);
-            System.out.println("[OrderProcessor] Sende Stornierung an " + 
-                             sellerId + ": " + json);
-            socket.send(json);
-            
-            String response = socket.recvStr();
+            System.out.println("[OrderProcessor] Sende Stornierung an " + sellerId + ": " + json);
+            dealerSocket.sendMore(sellerId);
+            dealerSocket.send(json);
+            byte[] replyId = dealerSocket.recv(0);
+            String response = dealerSocket.recvStr(0);
             if (response != null && !response.isEmpty()) {
                 System.out.println("[OrderProcessor] Stornierung bestätigt von " + sellerId);
             }
-            
-            socket.close();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } catch (ZMQException e) {
             System.err.println("[OrderProcessor] Fehler beim Rollback: " + e.getMessage());
         }
@@ -324,6 +293,7 @@ public class OrderProcessor {
      */
     public void shutdown() {
         executor.shutdown();
+        dealerSocket.close();
         context.close();
     }
 }

@@ -69,59 +69,49 @@ public class SellerApp {
         System.out.println("╠════════════════════════════════════════════╣");
         System.out.println("║ Port: " + port + "                                  ║");
         System.out.println("║ Produkte:                                  ║");
-        
-        // Zeige alle Produkte des Sellers
         for (Product p : inventory.getAllProducts().values()) {
             System.out.println("║   - " + p.getProductId() + " (" + p.getName() + "): Bestand " + 
                              String.format("%-2d", p.getStock()) + "      ║");
         }
-        
         System.out.println("╚════════════════════════════════════════════╝\n");
-        
         ConfigLoader.printConfig();
-        
+        int networkLatencyMs = 50; // Simulierte Latenz (konfigurierbar)
         try (ZContext context = new ZContext()) {
-            ZMQ.Socket socket = context.createSocket(SocketType.REP);
+            ZMQ.Socket socket = context.createSocket(SocketType.ROUTER);
             socket.bind("tcp://127.0.0.1:" + port);
-            
             System.out.println("[" + sellerId + "] Bereit für Anfragen auf Port " + port);
-            
             while (running) {
                 try {
-                    // Nachricht empfangen
-                    String request = socket.recvStr();
-                    System.out.println("\n[" + sellerId + "] Empfangen: " + request);
-                    
-                    // Fehlersimulation
+                    // ROUTER: Empfange Identität und Nachricht
+                    byte[] identity = socket.recv(0);
+                    String request = socket.recvStr(0);
+                    System.out.println("\n[" + sellerId + "] Empfangen von " + new String(identity) + ": " + request);
+                    Thread.sleep(networkLatencyMs); // Simuliere Netzwerklatenz
                     ErrorType error = ErrorSimulator.getNextError();
                     System.out.println("[" + sellerId + "] Fehlertyp: " + error);
-                    
-                    // Verarbeitung simulieren
                     ErrorSimulator.simulateProcessing();
-                    
+                    String response = "";
                     switch (error) {
                         case SUCCESS:
-                            // Normal verarbeiten und antworten
-                            String response = processMessage(request);
-                            socket.send(response);
+                            response = processMessage(request);
                             System.out.println("[" + sellerId + "] Gesendet: " + response);
                             break;
-                            
                         case FAIL_NO_RESPONSE:
-                            // Keine Antwort senden (Timeout beim Marketplace)
-                            System.out.println("[" + sellerId + "] FEHLER: Keine Antwort (Timeout)");
-                            // Socket muss trotzdem antworten in ZeroMQ REQ/REP
-                            socket.send("");
+                            System.out.println("[" + sellerId + "] TECHNISCHER FEHLER: Keine Antwort (Timeout)");
+                            response = "";
                             break;
-                            
                         case FAIL_CRASH:
-                            // Nachricht verarbeiten aber nicht antworten
-                            processMessage(request); // Verarbeitet!
-                            System.out.println("[" + sellerId + "] FEHLER: Crash nach Verarbeitung");
-                            socket.send(""); // Leere Antwort
+                            processMessage(request);
+                            System.out.println("[" + sellerId + "] TECHNISCHER FEHLER: Crash nach Verarbeitung");
+                            response = "";
                             break;
                     }
-                    
+                    // Sende Antwort (auch leere, damit DEALER nicht blockiert)
+                    socket.sendMore(identity);
+                    socket.send(response);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    running = false;
                 } catch (Exception e) {
                     System.err.println("[" + sellerId + "] Fehler: " + e.getMessage());
                     running = false;
