@@ -125,9 +125,35 @@ relevant.
 (E.g. ´´Lara implemented the marketplace´´; ´´Tim set up the test concept and the test environment´´;
 ´´Tom implemented the seller service´´; ´´All identified potential error scenarios.´´.)
 
-• A declaration on honor personally signed by all group members with the following wording must also be
+• A declaration of honor personally signed by all group members with the following wording must also be
 submitted:
 Hiermit erklären wir ehrenwörtlich, dass wir die vorliegende Portfolio-Arbeit zur Vorlesung
 ”Distributed Systems” bestehend aus Ausarbeitung, Dokumentation, Programmcode und Video
 selbstständig verfasst und keine anderen als die angegebenen Quellen und Hilfsmittel benutzt
 haben.
+
+# Ergänzende Angaben:
+Systemarchitektur & Nebenläufigkeit
+- Keine Threads notwendig, sondern mehrere Prozesse, die miteinander kommunizieren --> D.h. mehrfacher Start von Programm (mit verschiedenen Ports…), die
+miteinander kommunizieren über ZeroMQ oder TCP/IP oder … erfolgen. Es ist wichtig, dass es nicht nur ein Programm ist sondern mehrere Prozesse
+- Jeder Prozess (z.B. Seller, Marketplace) läuft separat – z.B. auf verschiedenen Ports Marketplaces & Seller
+- es gibt 2 Marketplaces und je mindestens 5 Seller-Instanzen
+- jeder Seller kann mit beiden Marketplaces kommunizieren (nicht exklusiv gebunden) Produkte & Zuordnung
+
+Produkte & Zuordnung
+- jeder Seller bietet mehrere Produkte mit mehreren Verfügbarkeiten an -> beide Marketplace kommunizieren ggf. mit allen Sellern, d.h. ein Seller ist NICHT exklusiv an einen Marketplace gebunden
+- Mehrere Seller dürfen das gleiche Produkt anbieten -> ideal: jeder Seller hat 2 Produkte
+
+Produktbestellung & Auswahl - Prozess
+- Kunde wählt gezielt, ob er in Marketplace 1 oder 2 bestellen will -> er setzt Bestellung mit Produkten von verschiedenen Sellern ab
+- Marketplace kontaktiert alle entsprechenden Seller, um die Produkte gem. Bestellung zu reservieren
+- wenn erfolgreich, dann werden alle Seller wieder kontaktiert, um die Bestellung auszulösen. Falls nicht erfolgreich, dann werden alle (erfolgreichen) Reservierungen rückgängig gemacht.
+- falls mehrere Seller ein Produkt anbieten, soll Kunde selbst entscheiden, von wem er das Produkt nun will
+- Zuteilung der Seller bei gleicher Produktverfügbarkeit ist gleich definiert.
+
+Bestelllogik & Transaktionen
+- Bestellung kann Produkte von mehreren Sellern enthalten
+- Marketplace reserviert alle Produkte bei den entsprechenden Sellern
+- nur wenn alle Reservierungen erfolgreich, wird die Bestellung ausgelöst
+- falls eine Reservierung fehlschlägt, → alle Reservierungen werden zurückgenommen (Rollback)
+- Produkte sind verfügbarkeitsbeschränkt, d.h. Fehler (z.B. Ausverkauf) müssen einkalkuliert werden
