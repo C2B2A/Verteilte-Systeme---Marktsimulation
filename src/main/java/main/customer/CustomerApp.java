@@ -56,6 +56,16 @@ public class CustomerApp {
         System.out.println("║ Sendet Bestellungen an Marketplaces        ║");
         System.out.println("║ Marketplace M1: Port 5570                  ║");
         System.out.println("║ Marketplace M2: Port 5571                  ║");
+        System.out.println("╠════════════════════════════════════════════╣");
+        
+        // Zeige Bestellmodus
+        if (CustomerOrdersConfig.shouldGenerateOrders()) {
+            System.out.println("║ Modus: GENERIERTE Bestellungen             ║");
+        } else {
+            System.out.println("║ Modus: VORDEFINIERTE Bestellungen          ║");
+            System.out.println("║ Anzahl: " + String.format("%-35d", CustomerOrdersConfig.getPredefinedOrderCount()) + "║");
+        }
+        
         System.out.println("╚════════════════════════════════════════════╝\n");
         
         ConfigLoader.printConfig();
@@ -89,7 +99,16 @@ public class CustomerApp {
             String orderId = customerId + "-ORD" + 
                            String.format("%04d", orderCounter.incrementAndGet());
             
-            OrderRequest order = createRandomOrder(orderId);
+            OrderRequest order;
+            
+            // Entscheidung: Generiert oder vordefiniert
+            if (CustomerOrdersConfig.shouldGenerateOrders()) {
+                order = createRandomOrder(orderId);
+                System.out.println("\n[" + customerId + "] Generiere zufällige Bestellung");
+            } else {
+                order = CustomerOrdersConfig.getNextPredefinedOrder(orderId, customerId);
+                System.out.println("\n[" + customerId + "] Verwende vordefinierte Bestellung");
+            }
             
             // Wähle zufälligen Marketplace
             int marketplacePort = MARKETPLACE_PORTS[random.nextInt(MARKETPLACE_PORTS.length)];

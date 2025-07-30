@@ -41,9 +41,6 @@ public class OrderProcessor {
         "PF", Arrays.asList("S5")
     );
     
-    // Verfolgt bereits versuchte Seller für Failover
-    private final Map<String, Set<String>> triedSellers = new ConcurrentHashMap<>();
-    
     public OrderProcessor(String marketplaceId, SagaManager sagaManager) {
         this.marketplaceId = marketplaceId;
         this.sagaManager = sagaManager;
@@ -60,10 +57,6 @@ public class OrderProcessor {
         
         // Starte SAGA
         SagaManager.OrderSaga saga = sagaManager.startSaga(order);
-        
-        // Initialisiere Tracking für diese Order
-        String orderKey = order.orderId;
-        triedSellers.put(orderKey, ConcurrentHashMap.newKeySet());
         
         // Sende parallele Reservierungsanfragen
         for (OrderRequest.ProductOrder productOrder : order.products) {
@@ -94,17 +87,8 @@ public class OrderProcessor {
             return;
         }
         
-        String orderKey = orderId;
-        Set<String> tried = triedSellers.get(orderKey);
-        
         // Versuche alle möglichen Seller
         for (String sellerId : possibleSellers) {
-            if (tried.contains(sellerId + "-" + productId)) {
-                continue; // Bereits versucht
-            }
-            
-            tried.add(sellerId + "-" + productId);
-            
             System.out.println("[OrderProcessor] Versuche Seller " + sellerId + 
                              " für Produkt " + productId);
             
@@ -209,9 +193,6 @@ public class OrderProcessor {
                 return;
             }
         }
-        
-        // Cleanup Tracking
-        triedSellers.remove(saga.orderId);
         
         // Prüfe Status
         if (saga.status == SagaManager.SagaStatus.RESERVED) {

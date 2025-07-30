@@ -1,6 +1,5 @@
 package main.seller;
 
-import main.messaging.MessageFormat;
 import main.messaging.MessageHandler;
 import main.messaging.MessageTypes.*;
 import main.simulation.ConfigLoader;
@@ -131,24 +130,24 @@ public class SellerApp {
         }
     }
     
-    private String processMessage(String json) {
-        String messageType = MessageHandler.getMessageType(json);
+    private String processMessage(String message) {
+        String messageType = MessageHandler.getMessageType(message);
         
         switch (messageType) {
             case "ReserveRequest":
-                ReserveRequest req = MessageHandler.fromJson(json, ReserveRequest.class);
+                ReserveRequest req = MessageHandler.fromJson(message, ReserveRequest.class);
                 return handleReserve(req);
                 
             case "CancelRequest":
-                CancelRequest cancel = MessageHandler.fromJson(json, CancelRequest.class);
+                CancelRequest cancel = MessageHandler.fromJson(message, CancelRequest.class);
                 return handleCancel(cancel);
                 
             case "ConfirmRequest":
-                ConfirmRequest confirm = MessageHandler.fromJson(json, ConfirmRequest.class);
+                ConfirmRequest confirm = MessageHandler.fromJson(message, ConfirmRequest.class);
                 return handleConfirm(confirm);
                 
             default:
-                return "{\"error\":\"Unknown message type\"}";
+                return "ERROR|Unknown message type";
         }
     }
     
@@ -190,7 +189,7 @@ public class SellerApp {
                              "(Angefordert: " + req.quantity + ", Verfügbar: " + product.getStock() + ")");
         }
         
-        return MessageFormat.format(response);
+        return MessageHandler.toJson(response);
     }
     
     private String handleCancel(CancelRequest req) {
@@ -214,6 +213,7 @@ public class SellerApp {
     private String handleConfirm(ConfirmRequest req) {
         inventory.confirmReservation(req.orderId);
         System.out.println("[" + sellerId + "] ✓ Bestätigt: Order " + req.orderId);
+        // Einfache Bestätigungsnachricht - wird vom Marketplace nicht geparst
         return "CONFIRMED|" + req.orderId + "|" + req.productId + "|" + req.sellerId;
     }
     
