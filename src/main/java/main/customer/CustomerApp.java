@@ -34,12 +34,19 @@ public class CustomerApp {
         "PA", "PB", "PC", "PD", "PE", "PF"
     );
     
+    private ZMQ.Socket pushSocket; // PUSH-Socket als Feld
+    
     public CustomerApp(String customerId) {
         this.customerId = customerId;
         this.context = new ZContext();
         this.scheduler = Executors.newScheduledThreadPool(1);
         this.random = new Random();
         this.orderCounter = new AtomicInteger(0);
+        // PUSH-Socket einmalig erstellen und mit allen Marketplaces verbinden
+        this.pushSocket = context.createSocket(SocketType.PUSH);
+        for (int port : MARKETPLACE_PORTS) {
+            this.pushSocket.connect("tcp://localhost:" + port);
+        }
     }
     
     public void start() {
@@ -98,15 +105,9 @@ public class CustomerApp {
             System.out.println("========================================");
             
             // Sende an Marketplace via PUSH
-            ZMQ.Socket socket = context.createSocket(SocketType.PUSH);
-            socket.connect("tcp://localhost:" + marketplacePort);
-            
             String message = MessageHandler.toJson(order);
-            socket.send(message);
-            socket.close();
-            
+            pushSocket.send(message); // Socket wiederverwenden
             System.out.println("[" + customerId + "] Bestellung gesendet!");
-            
         } catch (Exception e) {
             System.err.println("[" + customerId + "] Fehler beim Senden: " + e.getMessage());
         }
@@ -153,8 +154,8 @@ public class CustomerApp {
         System.out.println("\n[" + customerId + "] Fahre herunter...");
         running = false;
         scheduler.shutdown();
+        if (pushSocket != null) pushSocket.close(); // Socket schließen
         context.close();
-        
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                 scheduler.shutdownNow();
@@ -162,7 +163,6 @@ public class CustomerApp {
         } catch (InterruptedException e) {
             scheduler.shutdownNow();
         }
-        
         System.out.println("[" + customerId + "] Beendet.");
     }
     
