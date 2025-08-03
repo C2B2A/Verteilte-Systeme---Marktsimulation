@@ -56,17 +56,13 @@ The following parameters should be variable in your program or be adjustable via
 • Average processing time for an order by a seller.
 
 • Probability with which a seller receives a message ...
-
-• and accepts it but does not process it (simulated crash)
-
-• and processes it (i.e. makes a change to its status) but does not confirm the message
+and accepts it but does not process it (simulated crash)
+and processes it (i.e. makes a change to its status) but does not confirm the message
 
 • and successfully processes the message (i.e. possibly changes its status but in any case confirms
 the message); we differentiate:
-
-• the order was successful.
-
-• the order could not be carried out because no more products are available, which will
+the order was successful.
+the order could not be carried out because no more products are available, which will
 then require a rollback.
 (Use normal distributions as the basis for the required random numbers).
 
