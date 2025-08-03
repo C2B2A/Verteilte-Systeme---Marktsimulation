@@ -2,191 +2,193 @@ package main.messaging;
 
 import main.messaging.MessageTypes.*;
 import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Message Handler - KEINE externen Libraries!
- * Format: TYPE|field1|field2|field3...
+ * Format: JSON-String
  */
 public class MessageHandler {
-    
+
+    // Hilfsfunktion: String zu JSON-Feld
+    private static String jsonField(String key, String value) {
+        return "\"" + key + "\":\"" + value + "\"";
+    }
+    private static String jsonField(String key, int value) {
+        return "\"" + key + "\":" + value;
+    }
+
     /**
-     * Konvertiert eine Nachricht zu String
+     * Konvertiert eine Nachricht zu JSON-String
      */
     public static String toJson(Object msg) {
         if (msg instanceof ReserveRequest) {
             ReserveRequest r = (ReserveRequest) msg;
-            return "RESERVE|" + r.orderId + "|" + r.productId + "|" + 
-                   r.quantity + "|" + r.marketplaceId;
+            return "{" +
+                jsonField("messageType", "ReserveRequest") + "," +
+                jsonField("orderId", r.orderId) + "," +
+                jsonField("productId", r.productId) + "," +
+                jsonField("quantity", r.quantity) + "," +
+                jsonField("marketplaceId", r.marketplaceId) +
+                "}";
         }
         else if (msg instanceof ReserveResponse) {
             ReserveResponse r = (ReserveResponse) msg;
-            if ("RESERVED".equals(r.status)) {
-                return "RESERVED|" + r.orderId + "|" + r.productId + "|" + r.sellerId;
-            } else {
-                String reason = r.reason != null ? r.reason : "Unknown";
-                return "FAILED|" + r.orderId + "|" + r.productId + "|" + r.sellerId + "|" + reason;
+            StringBuilder sb = new StringBuilder("{");
+            sb.append(jsonField("messageType", "ReserveResponse")).append(",");
+            sb.append(jsonField("orderId", r.orderId)).append(",");
+            sb.append(jsonField("productId", r.productId)).append(",");
+            sb.append(jsonField("sellerId", r.sellerId)).append(",");
+            sb.append(jsonField("status", r.status));
+            if (r.reason != null) {
+                sb.append(",").append(jsonField("reason", r.reason));
             }
+            sb.append("}");
+            return sb.toString();
         }
         else if (msg instanceof CancelRequest) {
             CancelRequest c = (CancelRequest) msg;
-            return "CANCEL|" + c.orderId + "|" + c.productId + "|" + c.sellerId;
+            return "{" +
+                jsonField("messageType", "CancelRequest") + "," +
+                jsonField("orderId", c.orderId) + "," +
+                jsonField("productId", c.productId) + "," +
+                jsonField("sellerId", c.sellerId) +
+                "}";
         }
         else if (msg instanceof CancelResponse) {
             CancelResponse c = (CancelResponse) msg;
-            return "CANCELLED|" + c.orderId + "|" + c.productId + "|" + c.sellerId;
+            return "{" +
+                jsonField("messageType", "CancelResponse") + "," +
+                jsonField("orderId", c.orderId) + "," +
+                jsonField("productId", c.productId) + "," +
+                jsonField("sellerId", c.sellerId) + "," +
+                jsonField("status", c.status) +
+                "}";
         }
         else if (msg instanceof ConfirmRequest) {
             ConfirmRequest c = (ConfirmRequest) msg;
-            return "CONFIRM|" + c.orderId + "|" + c.productId + "|" + c.sellerId;
+            return "{" +
+                jsonField("messageType", "ConfirmRequest") + "," +
+                jsonField("orderId", c.orderId) + "," +
+                jsonField("productId", c.productId) + "," +
+                jsonField("sellerId", c.sellerId) +
+                "}";
         }
         else if (msg instanceof OrderRequest) {
             OrderRequest o = (OrderRequest) msg;
-            StringBuilder sb = new StringBuilder("ORDER|");
-            sb.append(o.orderId).append("|").append(o.customerId).append("|");
-            
+            StringBuilder sb = new StringBuilder("{");
+            sb.append(jsonField("messageType", "OrderRequest")).append(",");
+            sb.append(jsonField("orderId", o.orderId)).append(",");
+            sb.append(jsonField("customerId", o.customerId)).append(",");
+            sb.append("\"products\":[");
             for (int i = 0; i < o.products.size(); i++) {
                 OrderRequest.ProductOrder p = o.products.get(i);
-                sb.append(p.productId).append(":").append(p.quantity);
+                sb.append("{")
+                  .append(jsonField("productId", p.productId)).append(",")
+                  .append(jsonField("quantity", p.quantity))
+                  .append("}");
                 if (i < o.products.size() - 1) sb.append(",");
             }
+            sb.append("]}");
             return sb.toString();
         }
-        
-        return "UNKNOWN|" + msg.toString();
+        return "{\"messageType\":\"Unknown\",\"raw\":\"" + msg.toString() + "\"}";
     }
-    
+
     /**
-     * Parst einen String zu einer Nachricht
+     * Parst einen JSON-String zu einer Nachricht
      */
     @SuppressWarnings("unchecked")
     public static <T> T fromJson(String message, Class<T> clazz) {
-        if (message == null || message.isEmpty()) {
-            return null;
-        }
-        
-        String[] parts = message.split("\\|");
-        if (parts.length < 1) {
-            return null;
-        }
-        
-        String type = parts[0];
-        Object parsed = null;
-        
+        if (message == null || message.isEmpty()) return null;
+        String type = getMessageType(message);
+
         try {
             switch (type) {
-                case "RESERVE":
-                    if (parts.length >= 5) {
-                        ReserveRequest req = new ReserveRequest();
-                        req.orderId = parts[1];
-                        req.productId = parts[2];
-                        req.quantity = Integer.parseInt(parts[3]);
-                        req.marketplaceId = parts[4];
-                        parsed = req;
-                    }
-                    break;
-                    
-                case "RESERVED":
-                    if (parts.length >= 4) {
-                        ReserveResponse res = new ReserveResponse();
-                        res.orderId = parts[1];
-                        res.productId = parts[2];
-                        res.sellerId = parts[3];
-                        res.status = "RESERVED";
-                        parsed = res;
-                    }
-                    break;
-                    
-                case "FAILED":
-                    if (parts.length >= 4) {
-                        ReserveResponse res = new ReserveResponse();
-                        res.orderId = parts[1];
-                        res.productId = parts[2];
-                        res.sellerId = parts[3];
-                        res.status = "FAILED";
-                        res.reason = parts.length > 4 ? parts[4] : "Unknown";
-                        parsed = res;
-                    }
-                    break;
-                    
-                case "CANCEL":
-                    if (parts.length >= 4) {
-                        CancelRequest req = new CancelRequest();
-                        req.orderId = parts[1];
-                        req.productId = parts[2];
-                        req.sellerId = parts[3];
-                        parsed = req;
-                    }
-                    break;
-                    
-                case "CANCELLED":
-                    if (parts.length >= 4) {
-                        CancelResponse res = new CancelResponse();
-                        res.orderId = parts[1];
-                        res.productId = parts[2];
-                        res.sellerId = parts[3];
-                        res.status = "CANCELLED";
-                        parsed = res;
-                    }
-                    break;
-                    
-                case "CONFIRM":
-                    if (parts.length >= 4) {
-                        ConfirmRequest req = new ConfirmRequest();
-                        req.orderId = parts[1];
-                        req.productId = parts[2];
-                        req.sellerId = parts[3];
-                        parsed = req;
-                    }
-                    break;
-                    
-                case "ORDER":
-                    if (parts.length >= 4) {
-                        OrderRequest order = new OrderRequest();
-                        order.orderId = parts[1];
-                        order.customerId = parts[2];
-                        order.products = new ArrayList<>();
-                        
-                        String[] productPairs = parts[3].split(",");
-                        for (String pair : productPairs) {
-                            String[] productQty = pair.split(":");
-                            if (productQty.length == 2) {
-                                String productId = productQty[0];
-                                int quantity = Integer.parseInt(productQty[1]);
-                                order.products.add(new OrderRequest.ProductOrder(productId, quantity));
-                            }
+                case "ReserveRequest": {
+                    ReserveRequest req = new ReserveRequest();
+                    req.orderId = extractJsonValue(message, "orderId");
+                    req.productId = extractJsonValue(message, "productId");
+                    req.quantity = Integer.parseInt(extractJsonValue(message, "quantity"));
+                    req.marketplaceId = extractJsonValue(message, "marketplaceId");
+                    return clazz.isInstance(req) ? (T) req : null;
+                }
+                case "ReserveResponse": {
+                    ReserveResponse res = new ReserveResponse();
+                    res.orderId = extractJsonValue(message, "orderId");
+                    res.productId = extractJsonValue(message, "productId");
+                    res.sellerId = extractJsonValue(message, "sellerId");
+                    res.status = extractJsonValue(message, "status");
+                    res.reason = extractJsonValue(message, "reason");
+                    return clazz.isInstance(res) ? (T) res : null;
+                }
+                case "CancelRequest": {
+                    CancelRequest req = new CancelRequest();
+                    req.orderId = extractJsonValue(message, "orderId");
+                    req.productId = extractJsonValue(message, "productId");
+                    req.sellerId = extractJsonValue(message, "sellerId");
+                    return clazz.isInstance(req) ? (T) req : null;
+                }
+                case "CancelResponse": {
+                    CancelResponse res = new CancelResponse();
+                    res.orderId = extractJsonValue(message, "orderId");
+                    res.productId = extractJsonValue(message, "productId");
+                    res.sellerId = extractJsonValue(message, "sellerId");
+                    res.status = extractJsonValue(message, "status");
+                    return clazz.isInstance(res) ? (T) res : null;
+                }
+                case "ConfirmRequest": {
+                    ConfirmRequest req = new ConfirmRequest();
+                    req.orderId = extractJsonValue(message, "orderId");
+                    req.productId = extractJsonValue(message, "productId");
+                    req.sellerId = extractJsonValue(message, "sellerId");
+                    return clazz.isInstance(req) ? (T) req : null;
+                }
+                case "OrderRequest": {
+                    OrderRequest order = new OrderRequest();
+                    order.orderId = extractJsonValue(message, "orderId");
+                    order.customerId = extractJsonValue(message, "customerId");
+                    order.products = new ArrayList<>();
+                    String productsArray = extractJsonArray(message, "products");
+                    if (productsArray != null) {
+                        Matcher m = Pattern.compile("\\{([^}]+)\\}").matcher(productsArray);
+                        while (m.find()) {
+                            String prod = m.group(1);
+                            String productId = extractJsonValue("{" + prod + "}", "productId");
+                            int quantity = Integer.parseInt(extractJsonValue("{" + prod + "}", "quantity"));
+                            order.products.add(new OrderRequest.ProductOrder(productId, quantity));
                         }
-                        parsed = order;
                     }
-                    break;
+                    return clazz.isInstance(order) ? (T) order : null;
+                }
             }
-        } catch (NumberFormatException e) {
+        } catch (Exception e) {
             System.err.println("Fehler beim Parsen der Nachricht: " + e.getMessage());
         }
-        
-        if (parsed != null && clazz.isInstance(parsed)) {
-            return (T) parsed;
-        }
-        
         return null;
     }
-    
+
     /**
-     * Ermittelt den Nachrichtentyp
+     * Ermittelt den Nachrichtentyp aus JSON
      */
     public static String getMessageType(String message) {
-        if (message == null || message.isEmpty()) {
-            return "Unknown";
-        }
-        
-        if (message.startsWith("RESERVE|")) return "ReserveRequest";
-        if (message.startsWith("RESERVED|")) return "ReserveResponse";
-        if (message.startsWith("FAILED|")) return "ReserveResponse";
-        if (message.startsWith("CANCEL|")) return "CancelRequest";
-        if (message.startsWith("CANCELLED|")) return "CancelResponse";
-        if (message.startsWith("CONFIRM|")) return "ConfirmRequest";
-        if (message.startsWith("CONFIRMED|")) return "ConfirmResponse";
-        if (message.startsWith("ORDER|")) return "OrderRequest";
-        
-        return "Unknown";
+        if (message == null || message.isEmpty()) return "Unknown";
+        String type = extractJsonValue(message, "messageType");
+        return type != null ? type : "Unknown";
+    }
+
+    // Hilfsfunktion: Wert aus JSON extrahieren (nur für einfache Strings/Ints)
+    public static String extractJsonValue(String json, String key) {
+        Pattern p = Pattern.compile("\"" + key + "\"\\s*:\\s*\"?([^\"]+?)\"?(,|}|\\])");
+        Matcher m = p.matcher(json);
+        return m.find() ? m.group(1) : null;
+    }
+
+    // Hilfsfunktion: Array aus JSON extrahieren (nur für flache Arrays)
+    private static String extractJsonArray(String json, String key) {
+        Pattern p = Pattern.compile("\"" + key + "\"\\s*:\\s*(\\[.*?\\])");
+        Matcher m = p.matcher(json);
+        return m.find() ? m.group(1) : null;
     }
 }

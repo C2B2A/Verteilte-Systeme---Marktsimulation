@@ -120,26 +120,29 @@ public class SellerApp {
         }
     }
     
-    private String processMessage(String message) {
-        String messageType = MessageHandler.getMessageType(message);
-        
-        switch (messageType) {
-            case "ReserveRequest":
-                ReserveRequest req = MessageHandler.fromJson(message, ReserveRequest.class);
-                return handleReserve(req);
-                
-            case "CancelRequest":
-                CancelRequest cancel = MessageHandler.fromJson(message, CancelRequest.class);
-                return handleCancel(cancel);
-                
-            case "ConfirmRequest":
-                ConfirmRequest confirm = MessageHandler.fromJson(message, ConfirmRequest.class);
-                return handleConfirm(confirm);
-                
-            default:
-                return "ERROR|Unknown message type";
-        }
+private String processMessage(String message) {
+    String messageType = MessageHandler.getMessageType(message);
+    switch (messageType) {
+        case "ReserveRequest":
+            ReserveRequest req = MessageHandler.fromJson(message, ReserveRequest.class);
+            return handleReserve(req);
+        case "CancelRequest":
+            CancelRequest cancel = MessageHandler.fromJson(message, CancelRequest.class);
+            return handleCancel(cancel);
+        case "ConfirmRequest":
+            ConfirmRequest confirm = MessageHandler.fromJson(message, ConfirmRequest.class);
+            return handleConfirm(confirm);
+        default:
+            // Versuche, orderId und productId trotzdem zu extrahieren
+            ReserveResponse response = new ReserveResponse();
+            response.orderId = MessageHandler.extractJsonValue(message, "orderId");
+            response.productId = MessageHandler.extractJsonValue(message, "productId");
+            response.sellerId = sellerId;
+            response.status = "FAILED";
+            response.reason = "Unknown message type: " + messageType;
+            return MessageHandler.toJson(response);
     }
+}
     
     private String handleReserve(ReserveRequest req) {
         ReserveResponse response = new ReserveResponse();
@@ -201,11 +204,17 @@ public class SellerApp {
     }
     
     private String handleConfirm(ConfirmRequest req) {
-        inventory.confirmReservation(req.orderId);
-        System.out.println("[" + sellerId + "] ✓ Bestätigt: Order " + req.orderId);
-        // Einfache Bestätigungsnachricht - wird vom Marketplace nicht geparst
-        return "CONFIRMED|" + req.orderId + "|" + req.productId + "|" + req.sellerId;
-    }
+    inventory.confirmReservation(req.orderId);
+    System.out.println("[" + sellerId + "] ✓ Bestätigt: Order " + req.orderId);
+    // Rückmeldung als JSON (optional, falls Marketplace das irgendwann auswertet)
+    // Hier ein einfaches Bestätigungsobjekt:
+    ReserveResponse response = new ReserveResponse();
+    response.orderId = req.orderId;
+    response.productId = req.productId;
+    response.sellerId = sellerId;
+    response.status = "CONFIRMED";
+    return MessageHandler.toJson(response);
+}
     
     // Main-Methode
     public static void main(String[] args) {
