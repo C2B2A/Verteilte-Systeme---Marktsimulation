@@ -1,6 +1,6 @@
 package main.marketplace;
 
-import main.messaging.MessageTypes.*;
+import main.messaging.Messages;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -24,14 +24,14 @@ public class SagaManager {
     // Saga für eine Bestellung
     public static class OrderSaga {
         public final String orderId;
-        public final OrderRequest order;
+        public final Messages.OrderRequest order;
         public SagaStatus status;
-        public final Map<String, ReserveResponse> reservations;
+        public final Map<String, Messages.ReserveResponse> reservations;
         public final Set<String> pendingReservations;
         public final Set<String> failedReservations;
         public long startTime;
         
-        public OrderSaga(String orderId, OrderRequest order) {
+        public OrderSaga(String orderId, Messages.OrderRequest order) {
             this.orderId = orderId;
             this.order = order;
             this.status = SagaStatus.STARTED;
@@ -49,9 +49,9 @@ public class SagaManager {
             return !failedReservations.isEmpty();
         }
         
-        public List<ReserveResponse> getSuccessfulReservations() {
-            List<ReserveResponse> successful = new ArrayList<>();
-            for (ReserveResponse res : reservations.values()) {
+        public List<Messages.ReserveResponse> getSuccessfulReservations() {
+            List<Messages.ReserveResponse> successful = new ArrayList<>();
+            for (Messages.ReserveResponse res : reservations.values()) {
                 if ("RESERVED".equals(res.status)) {
                     successful.add(res);
                 }
@@ -66,7 +66,7 @@ public class SagaManager {
     /**
      * Startet eine neue SAGA für eine Bestellung
      */
-    public OrderSaga startSaga(OrderRequest order) {
+    public OrderSaga startSaga(Messages.OrderRequest order) {
         String orderId = order.orderId;
         OrderSaga saga = new OrderSaga(orderId, order);
         activeSagas.put(orderId, saga);
@@ -90,7 +90,7 @@ public class SagaManager {
     /**
      * Verarbeitet eine Reservierungsantwort
      */
-    public void handleReservationResponse(ReserveResponse response) {
+    public void handleReservationResponse(Messages.ReserveResponse response) {
         OrderSaga saga = activeSagas.get(response.orderId);
         if (saga == null) {
             System.err.println("[SAGA] Keine Saga gefunden für Order " + response.orderId);
@@ -137,7 +137,7 @@ public class SagaManager {
                              " in Order " + orderId);
             
             // Erstelle künstliche Fehler-Response
-            ReserveResponse timeoutResponse = new ReserveResponse();
+            Messages.ReserveResponse timeoutResponse = new Messages.ReserveResponse();
             timeoutResponse.orderId = orderId;
             timeoutResponse.productId = productId;
             timeoutResponse.status = "FAILED";
@@ -153,7 +153,7 @@ public class SagaManager {
     /**
      * Gibt alle erfolgreichen Reservierungen für Rollback zurück
      */
-    public List<ReserveResponse> getReservationsForRollback(String orderId) {
+    public List<Messages.ReserveResponse> getReservationsForRollback(String orderId) {
         OrderSaga saga = activeSagas.get(orderId);
         if (saga != null) {
             return saga.getSuccessfulReservations();

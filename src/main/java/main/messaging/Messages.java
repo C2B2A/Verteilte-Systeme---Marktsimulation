@@ -1,27 +1,75 @@
 package main.messaging;
 
-import main.messaging.MessageTypes.*;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Message Handler - KEINE externen Libraries!
- * Format: JSON-String
+ * Consolidated messaging class containing message types and handler functionality
  */
-public class MessageHandler {
-
-    // Hilfsfunktion: String zu JSON-Feld
+public class Messages {
+    
+    // Message Types
+    public static class OrderRequest {
+        public String orderId;
+        public List<ProductOrder> products;
+        public String customerId;
+        
+        public static class ProductOrder {
+            public String productId;
+            public int quantity;
+            
+            public ProductOrder(String productId, int quantity) {
+                this.productId = productId;
+                this.quantity = quantity;
+            }
+        }
+    }
+    
+    public static class ReserveRequest {
+        public String orderId;
+        public String productId;
+        public int quantity;
+        public String marketplaceId;
+    }
+    
+    public static class ReserveResponse {
+        public String orderId;
+        public String productId;
+        public String sellerId;
+        public String status;
+        public String reason;
+    }
+    
+    public static class CancelRequest {
+        public String orderId;
+        public String productId;
+        public String sellerId;
+    }
+    
+    public static class CancelResponse {
+        public String orderId;
+        public String productId;
+        public String sellerId;
+        public String status;
+    }
+    
+    public static class ConfirmRequest {
+        public String orderId;
+        public String productId;
+        public String sellerId;
+    }
+    
+    // Message Handler Methods
     private static String jsonField(String key, String value) {
         return "\"" + key + "\":\"" + value + "\"";
     }
+    
     private static String jsonField(String key, int value) {
         return "\"" + key + "\":" + value;
     }
 
-    /**
-     * Konvertiert eine Nachricht zu JSON-String
-     */
     public static String toJson(Object msg) {
         if (msg instanceof ReserveRequest) {
             ReserveRequest r = (ReserveRequest) msg;
@@ -96,9 +144,6 @@ public class MessageHandler {
         return "{\"messageType\":\"Unknown\",\"raw\":\"" + msg.toString() + "\"}";
     }
 
-    /**
-     * Parst einen JSON-String zu einer Nachricht
-     */
     @SuppressWarnings("unchecked")
     public static <T> T fromJson(String message, Class<T> clazz) {
         if (message == null || message.isEmpty()) return null;
@@ -169,23 +214,18 @@ public class MessageHandler {
         return null;
     }
 
-    /**
-     * Ermittelt den Nachrichtentyp aus JSON
-     */
     public static String getMessageType(String message) {
         if (message == null || message.isEmpty()) return "Unknown";
         String type = extractJsonValue(message, "messageType");
         return type != null ? type : "Unknown";
     }
 
-    // Hilfsfunktion: Wert aus JSON extrahieren (nur für einfache Strings/Ints)
     public static String extractJsonValue(String json, String key) {
         Pattern p = Pattern.compile("\"" + key + "\"\\s*:\\s*\"?([^\"]+?)\"?(,|}|\\])");
         Matcher m = p.matcher(json);
         return m.find() ? m.group(1) : null;
     }
 
-    // Hilfsfunktion: Array aus JSON extrahieren (nur für flache Arrays)
     private static String extractJsonArray(String json, String key) {
         Pattern p = Pattern.compile("\"" + key + "\"\\s*:\\s*(\\[.*?\\])");
         Matcher m = p.matcher(json);

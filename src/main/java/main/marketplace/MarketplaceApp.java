@@ -1,7 +1,6 @@
 package main.marketplace;
 
-import main.messaging.MessageHandler;
-import main.messaging.MessageTypes.*;
+import main.messaging.Messages;
 import main.simulation.ConfigLoader;
 import org.zeromq.SocketType;
 import org.zeromq.ZContext;
@@ -85,25 +84,28 @@ public class MarketplaceApp {
     }
     
     /**
-     * Empfängt Bestellungen von Customers via PULL Socket
+     * Empfängt Bestellungen von Customers via ROUTER Socket
      */
     private void receiveOrders() {
-        ZMQ.Socket receiver = context.createSocket(SocketType.PULL);
+        ZMQ.Socket receiver = context.createSocket(SocketType.ROUTER);
         receiver.bind("tcp://127.0.0.1:" + port);
         
         System.out.println("[" + marketplaceId + "] Warte auf Customer-Bestellungen auf Port " + port);
         
         while (running) {
             try {
-                String message = receiver.recvStr();
+                // ROUTER: Empfange Customer-ID und Nachricht
+                byte[] customerIdentity = receiver.recv(0);
+                String message = receiver.recvStr(0);
+                
                 if (message != null && !message.isEmpty()) {
-                    OrderRequest order = MessageHandler.fromJson(message, OrderRequest.class);
+                    Messages.OrderRequest order = Messages.fromJson(message, Messages.OrderRequest.class);
                     if (order != null) {
                         System.out.println("\n========================================");
                         System.out.println("[" + marketplaceId + "] Bestellung empfangen von " + order.customerId);
                         System.out.println("Order ID: " + order.orderId);
                         System.out.println("Produkte:");
-                        for (OrderRequest.ProductOrder p : order.products) {
+                        for (Messages.OrderRequest.ProductOrder p : order.products) {
                             // Finde mögliche Seller für dieses Produkt
                             List<String> possibleSellers = findSellersForProduct(p.productId);
                             System.out.println("  - " + p.productId + " x " + p.quantity + 
@@ -113,7 +115,20 @@ public class MarketplaceApp {
                         
                         // Verarbeite Bestellung
                         orderProcessor.processOrder(order);
+                        
+                        // Sende Bestätigung zurück an Customer
+                        receiver.sendMore(customerIdentity);
+                        receiver.send("Bestellung " + order.orderId + " empfangen und wird verarbeitet");
+                        System.out.println("[" + marketplaceId + "] Bestätigung an " + order.customerId + " gesendet");
+                    } else {
+                        // Fehlerhafte Nachricht
+                        receiver.sendMore(customerIdentity);
+                        receiver.send("FEHLER: Ungültige Bestellung");
                     }
+                } else {
+                    // Leere Nachricht
+                    receiver.sendMore(customerIdentity);
+                    receiver.send("FEHLER: Leere Nachricht");
                 }
             } catch (Exception e) {
                 System.err.println("[" + marketplaceId + "] Fehler beim Empfangen: " + e.getMessage());

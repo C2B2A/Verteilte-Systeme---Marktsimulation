@@ -1,7 +1,6 @@
 package main.marketplace;
 
-import main.messaging.MessageHandler;
-import main.messaging.MessageTypes.*;
+import main.messaging.Messages;
 import main.simulation.ConfigLoader;
 import org.zeromq.SocketType;
 import org.zeromq.ZContext;
@@ -61,14 +60,14 @@ public class OrderProcessor {
     /**
      * Verarbeitet eine neue Bestellung
      */
-    public void processOrder(OrderRequest order) {
+    public void processOrder(Messages.OrderRequest order) {
         System.out.println("\n[OrderProcessor] Neue Bestellung: " + order.orderId);
         
         // Starte SAGA
         SagaManager.OrderSaga saga = sagaManager.startSaga(order);
         
         // Sende parallele Reservierungsanfragen
-        for (OrderRequest.ProductOrder productOrder : order.products) {
+        for (Messages.OrderRequest.ProductOrder productOrder : order.products) {
             // Registriere ausstehende Reservierung
             sagaManager.registerPendingReservation(order.orderId, productOrder.productId);
             
@@ -125,12 +124,12 @@ public class OrderProcessor {
     private boolean sendReservationRequest(String orderId, String productId, int quantity, String sellerId) {
         try {
             Thread.sleep(networkLatencyMs);
-            ReserveRequest request = new ReserveRequest();
+            Messages.ReserveRequest request = new Messages.ReserveRequest();
             request.orderId = orderId;
             request.productId = productId;
             request.quantity = quantity;
             request.marketplaceId = marketplaceId;
-            String json = MessageHandler.toJson(request);
+            String json = Messages.toJson(request);
             System.out.println("[OrderProcessor] Sende an " + sellerId + ": " + json);
             dealerSocket.sendMore(sellerId);
             dealerSocket.send(json);
@@ -154,10 +153,10 @@ public class OrderProcessor {
                 String sellerId = new String(sellerIdBytes, ZMQ.CHARSET);
                 String response = dealerSocket.recvStr(0);
                 if (response != null && !response.isEmpty()) {
-                    String type = MessageHandler.getMessageType(response);
+                    String type = Messages.getMessageType(response);
                     switch (type) {
                         case "ReserveResponse":
-                            ReserveResponse reserveResponse = MessageHandler.fromJson(response, ReserveResponse.class);
+                            Messages.ReserveResponse reserveResponse = Messages.fromJson(response, Messages.ReserveResponse.class);
                             sagaManager.handleReservationResponse(reserveResponse);
                             break;
                         case "CancelResponse":
@@ -212,9 +211,9 @@ public class OrderProcessor {
     private void confirmOrder(SagaManager.OrderSaga saga) {
         System.out.println("\n[OrderProcessor] Bestätige Order " + saga.orderId);
         
-        for (ReserveResponse reservation : saga.getSuccessfulReservations()) {
+        for (Messages.ReserveResponse reservation : saga.getSuccessfulReservations()) {
             executor.submit(() -> {
-                ConfirmRequest confirm = new ConfirmRequest();
+                Messages.ConfirmRequest confirm = new Messages.ConfirmRequest();
                 confirm.orderId = saga.orderId;
                 confirm.productId = reservation.productId;
                 confirm.sellerId = reservation.sellerId;
@@ -234,13 +233,13 @@ public class OrderProcessor {
     private void rollbackOrder(SagaManager.OrderSaga saga) {
         System.out.println("\n[OrderProcessor] Rollback für Order " + saga.orderId);
         
-        List<ReserveResponse> toRollback = sagaManager.getReservationsForRollback(saga.orderId);
+        List<Messages.ReserveResponse> toRollback = sagaManager.getReservationsForRollback(saga.orderId);
         CountDownLatch latch = new CountDownLatch(toRollback.size());
         
-        for (ReserveResponse reservation : toRollback) {
+        for (Messages.ReserveResponse reservation : toRollback) {
             executor.submit(() -> {
                 try {
-                    CancelRequest cancel = new CancelRequest();
+                    Messages.CancelRequest cancel = new Messages.CancelRequest();
                     cancel.orderId = saga.orderId;
                     cancel.productId = reservation.productId;
                     cancel.sellerId = reservation.sellerId;
@@ -267,10 +266,10 @@ public class OrderProcessor {
     /**
      * Sendet Bestätigung an Seller
      */
-    private void sendConfirmation(ConfirmRequest confirm, String sellerId) {
+    private void sendConfirmation(Messages.ConfirmRequest confirm, String sellerId) {
         try {
             Thread.sleep(networkLatencyMs);
-            String json = MessageHandler.toJson(confirm);
+            String json = Messages.toJson(confirm);
             System.out.println("[OrderProcessor] Sende Bestätigung an " + sellerId + ": " + json);
             dealerSocket.sendMore(sellerId);
             dealerSocket.send(json);
@@ -284,10 +283,10 @@ public class OrderProcessor {
     /**
      * Sendet Stornierung an Seller
      */
-    private void sendCancellation(CancelRequest cancel, String sellerId) {
+    private void sendCancellation(Messages.CancelRequest cancel, String sellerId) {
         try {
             Thread.sleep(networkLatencyMs);
-            String json = MessageHandler.toJson(cancel);
+            String json = Messages.toJson(cancel);
             System.out.println("[OrderProcessor] Sende Stornierung an " + sellerId + ": " + json);
             dealerSocket.sendMore(sellerId);
             dealerSocket.send(json);

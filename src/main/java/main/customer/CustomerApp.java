@@ -1,8 +1,6 @@
 package main.customer;
 
-import main.messaging.MessageHandler;
-import main.messaging.MessageTypes.OrderRequest;
-import main.messaging.MessageTypes.OrderRequest.ProductOrder;
+import main.messaging.Messages;
 import main.simulation.ConfigLoader;
 import org.zeromq.SocketType;
 import org.zeromq.ZContext;
@@ -24,6 +22,7 @@ public class CustomerApp {
     private final ScheduledExecutorService scheduler;
     private final Random random;
     private final AtomicInteger orderCounter;
+    private final ZMQ.Socket dealerSocket;
     private boolean running = true;
     
     // Marketplace Ports für PULL Sockets
@@ -37,10 +36,18 @@ public class CustomerApp {
     public CustomerApp(String customerId) {
         this.customerId = customerId;
         this.context = new ZContext();
-        this.scheduler = Executors.newScheduledThreadPool(1);
+        this.scheduler = Executors.newScheduledThreadPool(2); // 1 für Orders, 1 für Responses
         this.random = new Random();
         this.orderCounter = new AtomicInteger(0);
-        // Kein Socket als Feld mehr nötig
+        
+        // Persistenter DEALER Socket wie OrderProcessor
+        this.dealerSocket = context.createSocket(SocketType.DEALER);
+        this.dealerSocket.setIdentity(customerId.getBytes());
+        
+        // Verbinde zu allen Marketplaces
+        for (int port : MARKETPLACE_PORTS) {
+            this.dealerSocket.connect("tcp://localhost:" + port);
+        }
     }
     
     public void start() {
@@ -63,6 +70,9 @@ public class CustomerApp {
         System.out.println("╚════════════════════════════════════════════╝\n");
         
         ConfigLoader.printConfig();
+        
+        // Starte Response-Empfänger (wie OrderProcessor)
+        scheduler.execute(this::receiveMarketplaceResponses);
         
         // Starte Order-Generator
         int orderDelay = ConfigLoader.getOrderDelay();
@@ -90,7 +100,7 @@ public class CustomerApp {
     private void sendOrder() {
         try {
             String orderId = customerId + "-ORD" + String.format("%04d", orderCounter.incrementAndGet());
-            OrderRequest order;
+            Messages.OrderRequest order;
             if (CustomerOrdersConfig.shouldGenerateOrders()) {
                 order = createRandomOrder(orderId);
                 System.out.println("\n[" + customerId + "] Generiere zufällige Bestellung");
@@ -103,32 +113,23 @@ public class CustomerApp {
             System.out.println("[" + customerId + "] Bestellung an Marketplace:");
             System.out.println("Order ID: " + order.orderId);
             System.out.println("Produkte:");
-            for (OrderRequest.ProductOrder p : order.products) {
+            for (Messages.OrderRequest.ProductOrder p : order.products) {
                 System.out.println("  - " + p.productId + " x " + p.quantity);
             }
             System.out.println("========================================");
-            int marketplacePort = MARKETPLACE_PORTS[random.nextInt(MARKETPLACE_PORTS.length)];
-            String marketplaceId = marketplacePort == 5570 ? "M1" : "M2";
-            String message = MessageHandler.toJson(order);
-            try (ZMQ.Socket reqSocket = context.createSocket(SocketType.REQ)) {
-                reqSocket.setReceiveTimeOut(5000); // 5 Sekunden Timeout
-                reqSocket.connect("tcp://localhost:" + marketplacePort);
-                reqSocket.send(message);
-                System.out.println("[" + customerId + "] Bestellung gesendet an " + marketplaceId + "!");
-                String response = reqSocket.recvStr();
-                if (response == null) {
-                    System.out.println("[" + customerId + "] Keine Antwort vom Marketplace (Timeout nach 5s). Neue Bestellung wird vorbereitet.");
-                } else {
-                    System.out.println("[" + customerId + "] Antwort vom Marketplace: " + response);
-                }
-            }
+            
+            // Sende asynchron über persistenten Socket (wie OrderProcessor)
+            String message = Messages.toJson(order);
+            dealerSocket.sendMore("");  // Leerer Routing-Frame für Auto-Routing
+            dealerSocket.send(message); // Message-Frame
+            System.out.println("[" + customerId + "] Bestellung gesendet (asynchron)!");
         } catch (Exception e) {
             System.err.println("[" + customerId + "] Fehler beim Senden: " + e.getMessage());
         }
     }
     
-    private OrderRequest createRandomOrder(String orderId) {
-        OrderRequest order = new OrderRequest();
+    private Messages.OrderRequest createRandomOrder(String orderId) {
+        Messages.OrderRequest order = new Messages.OrderRequest();
         order.orderId = orderId;
         order.customerId = customerId;
         order.products = new ArrayList<>();
@@ -153,21 +154,40 @@ public class CustomerApp {
             if (random.nextDouble() < ConfigLoader.getDuplicateProductProbability() && i > 0) {
                 // Nimm ein bereits verwendetes Produkt
                 String duplicateProduct = order.products.get(0).productId;
-                order.products.add(new ProductOrder(duplicateProduct, quantity));
+                order.products.add(new Messages.OrderRequest.ProductOrder(duplicateProduct, quantity));
                 System.out.println("  WARNUNG: Doppelte Produktanforderung simuliert!");
                 break;
             } else {
-                order.products.add(new ProductOrder(productId, quantity));
+                order.products.add(new Messages.OrderRequest.ProductOrder(productId, quantity));
             }
         }
         
         return order;
     }
     
+    /**
+     * Empfangs-Thread für Marketplace-Antworten (wie OrderProcessor)
+     */
+    private void receiveMarketplaceResponses() {
+        while (running && !Thread.currentThread().isInterrupted()) {
+            try {
+                String response = dealerSocket.recvStr();
+                if (response != null && !response.isEmpty()) {
+                    System.out.println("[" + customerId + "] Antwort vom Marketplace: " + response);
+                }
+            } catch (Exception e) {
+                if (running) {
+                    System.err.println("[" + customerId + "] Fehler beim Empfangen: " + e.getMessage());
+                }
+            }
+        }
+    }
+    
     public void shutdown() {
         System.out.println("\n[" + customerId + "] Fahre herunter...");
         running = false;
         scheduler.shutdown();
+        dealerSocket.close();
         context.close();
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {

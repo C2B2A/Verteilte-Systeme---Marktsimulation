@@ -1,13 +1,13 @@
 package main.seller;
 
-import main.messaging.MessageHandler;
-import main.messaging.MessageTypes.*;
+import main.messaging.Messages;
 import main.simulation.ConfigLoader;
 import main.simulation.ErrorSimulator;
 import main.simulation.ErrorSimulator.ErrorType;
 import org.zeromq.SocketType;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
+import java.util.Map;
 
 /**
  * Seller mit korrekter Produktverteilung laut Anforderung
@@ -16,13 +16,13 @@ import org.zeromq.ZMQ;
 public class SellerApp {
     private final String sellerId;
     private final int port;
-    private final Inventory inventory;
+    private final SellerInventory inventory;
     private boolean running = true;
     
     public SellerApp(String sellerId, int port) {
         this.sellerId = sellerId;
         this.port = port;
-        this.inventory = new Inventory();
+        this.inventory = new SellerInventory();
         
         // Initialisiere Produkte gemäß Anforderung
         initializeProducts();
@@ -36,30 +36,30 @@ public class SellerApp {
         
         switch (sellerId) {
             case "S1":
-                inventory.addProduct(new Product("PA", "Produkt A", initialStock));
-                inventory.addProduct(new Product("PB", "Produkt B", initialStock - 2));
+                inventory.addProduct("PA", "Produkt A", initialStock);
+                inventory.addProduct("PB", "Produkt B", initialStock - 2);
                 break;
             case "S2":
-                inventory.addProduct(new Product("PC", "Produkt C", initialStock));
-                inventory.addProduct(new Product("PD", "Produkt D", initialStock - 2));
+                inventory.addProduct("PC", "Produkt C", initialStock);
+                inventory.addProduct("PD", "Produkt D", initialStock - 2);
                 break;
             case "S3":
-                inventory.addProduct(new Product("PC", "Produkt C", initialStock));
-                inventory.addProduct(new Product("PE", "Produkt E", initialStock - 2));
+                inventory.addProduct("PC", "Produkt C", initialStock);
+                inventory.addProduct("PE", "Produkt E", initialStock - 2);
                 break;
             case "S4":
-                inventory.addProduct(new Product("PD", "Produkt D", initialStock));
-                inventory.addProduct(new Product("PE", "Produkt E", initialStock - 2));
+                inventory.addProduct("PD", "Produkt D", initialStock);
+                inventory.addProduct("PE", "Produkt E", initialStock - 2);
                 break;
             case "S5":
-                inventory.addProduct(new Product("PF", "Produkt F", initialStock));
-                inventory.addProduct(new Product("PB", "Produkt B", initialStock - 2));
+                inventory.addProduct("PF", "Produkt F", initialStock);
+                inventory.addProduct("PB", "Produkt B", initialStock - 2);
                 break;
             default:
                 // Fallback für unbekannte Seller
                 System.err.println("Warnung: Unbekannte Seller-ID " + sellerId);
-                inventory.addProduct(new Product("PX", "Produkt X", initialStock));
-                inventory.addProduct(new Product("PY", "Produkt Y", initialStock - 2));
+                inventory.addProduct("PX", "Produkt X", initialStock);
+                inventory.addProduct("PY", "Produkt Y", initialStock - 2);
         }
     }
     
@@ -69,9 +69,12 @@ public class SellerApp {
         System.out.println("╠════════════════════════════════════════════╣");
         System.out.println("║ Port: " + port + "                                  ║");
         System.out.println("║ Produkte:                                  ║");
-        for (Product p : inventory.getAllProducts().values()) {
-            System.out.println("║   - " + p.getProductId() + " (" + p.getName() + "): Bestand " + 
-                             String.format("%-2d", p.getStock()) + "      ║");
+        for (Map.Entry<String, String> entry : inventory.getAllProductNames().entrySet()) {
+            String productId = entry.getKey();
+            String name = entry.getValue();
+            int stock = inventory.getStock(productId);
+            System.out.println("║   - " + productId + " (" + name + "): Bestand " + 
+                             String.format("%-2d", stock) + "      ║");
         }
         System.out.println("╚════════════════════════════════════════════╝\n");
         ConfigLoader.printConfig();
@@ -121,57 +124,55 @@ public class SellerApp {
     }
     
 private String processMessage(String message) {
-    String messageType = MessageHandler.getMessageType(message);
+    String messageType = Messages.getMessageType(message);
     switch (messageType) {
         case "ReserveRequest":
-            ReserveRequest req = MessageHandler.fromJson(message, ReserveRequest.class);
+            Messages.ReserveRequest req = Messages.fromJson(message, Messages.ReserveRequest.class);
             return handleReserve(req);
         case "CancelRequest":
-            CancelRequest cancel = MessageHandler.fromJson(message, CancelRequest.class);
+            Messages.CancelRequest cancel = Messages.fromJson(message, Messages.CancelRequest.class);
             return handleCancel(cancel);
         case "ConfirmRequest":
-            ConfirmRequest confirm = MessageHandler.fromJson(message, ConfirmRequest.class);
+            Messages.ConfirmRequest confirm = Messages.fromJson(message, Messages.ConfirmRequest.class);
             return handleConfirm(confirm);
         default:
             // Versuche, orderId und productId trotzdem zu extrahieren
-            ReserveResponse response = new ReserveResponse();
-            response.orderId = MessageHandler.extractJsonValue(message, "orderId");
-            response.productId = MessageHandler.extractJsonValue(message, "productId");
+            Messages.ReserveResponse response = new Messages.ReserveResponse();
+            response.orderId = Messages.extractJsonValue(message, "orderId");
+            response.productId = Messages.extractJsonValue(message, "productId");
             response.sellerId = sellerId;
             response.status = "FAILED";
             response.reason = "Unknown message type: " + messageType;
-            return MessageHandler.toJson(response);
+            return Messages.toJson(response);
     }
 }
     
-    private String handleReserve(ReserveRequest req) {
-        ReserveResponse response = new ReserveResponse();
+    private String handleReserve(Messages.ReserveRequest req) {
+        Messages.ReserveResponse response = new Messages.ReserveResponse();
         response.orderId = req.orderId;
         response.productId = req.productId;
         response.sellerId = sellerId;
         
-        Product product = inventory.getProduct(req.productId);
-        
         // Fachlicher Fehler 1: Unbekanntes Produkt
-        if (product == null) {
+        if (!inventory.hasProduct(req.productId)) {
             response.status = "FAILED";
             response.reason = "Produkt nicht im Sortiment";
             System.out.println("[" + sellerId + "] ✗ Produkt " + req.productId + 
                              " nicht im Sortiment (habe nur: " + 
-                             String.join(", ", inventory.getAllProducts().keySet()) + ")");
+                             String.join(", ", inventory.getAllProductNames().keySet()) + ")");
         } 
         // Fachlicher Fehler 2: Produkt "versehentlich" nicht verfügbar
         else if (ErrorSimulator.getBusinessError() == ErrorSimulator.BusinessError.PRODUCT_UNAVAILABLE) {
             response.status = "FAILED";
             response.reason = "Produkt temporär nicht verfügbar";
             System.out.println("[" + sellerId + "] ✗ FACHLICHER FEHLER: Produkt " + req.productId + 
-                             " als nicht verfügbar markiert (trotz Bestand: " + product.getStock() + ")");
+                             " als nicht verfügbar markiert (trotz Bestand: " + inventory.getStock(req.productId) + ")");
         }
         // Normale Reservierung versuchen
         else if (inventory.reserve(req.orderId, req.productId, req.quantity)) {
             response.status = "RESERVED";
             System.out.println("[" + sellerId + "] ✓ Reserviert: " + req.quantity + "x " + 
-                             product.getName() + " für Order " + req.orderId);
+                             inventory.getProductName(req.productId) + " für Order " + req.orderId);
             inventory.printStatus();
         } 
         // Fachlicher Fehler 3: Nicht genug auf Lager
@@ -179,14 +180,14 @@ private String processMessage(String message) {
             response.status = "FAILED";
             response.reason = "Nicht genug auf Lager";
             System.out.println("[" + sellerId + "] ✗ Nicht genug auf Lager " +
-                             "(Angefordert: " + req.quantity + ", Verfügbar: " + product.getStock() + ")");
+                             "(Angefordert: " + req.quantity + ", Verfügbar: " + inventory.getStock(req.productId) + ")");
         }
         
-        return MessageHandler.toJson(response);
+        return Messages.toJson(response);
     }
     
-    private String handleCancel(CancelRequest req) {
-        CancelResponse response = new CancelResponse();
+    private String handleCancel(Messages.CancelRequest req) {
+        Messages.CancelResponse response = new Messages.CancelResponse();
         response.orderId = req.orderId;
         response.productId = req.productId;
         response.sellerId = sellerId;
@@ -200,20 +201,20 @@ private String processMessage(String message) {
             System.out.println("[" + sellerId + "] ✗ Stornierung fehlgeschlagen für Order " + req.orderId);
         }
         
-        return MessageHandler.toJson(response);
+        return Messages.toJson(response);
     }
     
-    private String handleConfirm(ConfirmRequest req) {
+    private String handleConfirm(Messages.ConfirmRequest req) {
     inventory.confirmReservation(req.orderId);
     System.out.println("[" + sellerId + "] ✓ Bestätigt: Order " + req.orderId);
     // Rückmeldung als JSON (optional, falls Marketplace das irgendwann auswertet)
     // Hier ein einfaches Bestätigungsobjekt:
-    ReserveResponse response = new ReserveResponse();
+    Messages.ReserveResponse response = new Messages.ReserveResponse();
     response.orderId = req.orderId;
     response.productId = req.productId;
     response.sellerId = sellerId;
     response.status = "CONFIRMED";
-    return MessageHandler.toJson(response);
+    return Messages.toJson(response);
 }
     
     // Main-Methode

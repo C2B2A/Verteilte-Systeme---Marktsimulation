@@ -1,7 +1,6 @@
 package main.customer;
 
-import main.messaging.MessageTypes.OrderRequest;
-import main.messaging.MessageTypes.OrderRequest.ProductOrder;
+import main.messaging.Messages;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,51 +19,51 @@ public class CustomerOrdersConfig {
         // Bestellung 1: Einfache Bestellung von S1
         new PredefinedOrder(
             Arrays.asList(
-                new ProductOrder("PA", 2),
-                new ProductOrder("PB", 1)
+                new Messages.OrderRequest.ProductOrder("PA", 2),
+                new Messages.OrderRequest.ProductOrder("PB", 1)
             )
         ),
         
         // Bestellung 2: Produkte von mehreren Sellern
         new PredefinedOrder(
             Arrays.asList(
-                new ProductOrder("PC", 1),
-                new ProductOrder("PE", 2),
-                new ProductOrder("PF", 1)
+                new Messages.OrderRequest.ProductOrder("PC", 1),
+                new Messages.OrderRequest.ProductOrder("PE", 2),
+                new Messages.OrderRequest.ProductOrder("PF", 1)
             )
         ),
         
         // Bestellung 3: Test für Failover (PC bei S2 und S3 verfügbar)
         new PredefinedOrder(
             Arrays.asList(
-                new ProductOrder("PC", 3),
-                new ProductOrder("PD", 2)
+                new Messages.OrderRequest.ProductOrder("PC", 3),
+                new Messages.OrderRequest.ProductOrder("PD", 2)
             )
         ),
         
         // Bestellung 4: Große Bestellung (könnte fehlschlagen)
         new PredefinedOrder(
             Arrays.asList(
-                new ProductOrder("PA", 5),
-                new ProductOrder("PB", 4)
+                new Messages.OrderRequest.ProductOrder("PA", 5),
+                new Messages.OrderRequest.ProductOrder("PB", 4)
             )
         ),
         
         // Bestellung 5: Test für doppelte Produkte (fachlicher Fehler)
         new PredefinedOrder(
             Arrays.asList(
-                new ProductOrder("PE", 2),
-                new ProductOrder("PE", 1), // Duplikat!
-                new ProductOrder("PD", 1)
+                new Messages.OrderRequest.ProductOrder("PE", 2),
+                new Messages.OrderRequest.ProductOrder("PE", 1), // Duplikat!
+                new Messages.OrderRequest.ProductOrder("PD", 1)
             )
         )
     );
     
     // Hilfklasse für vordefinierte Bestellungen
     private static class PredefinedOrder {
-        final List<ProductOrder> products;
+        final List<Messages.OrderRequest.ProductOrder> products;
         
-        PredefinedOrder(List<ProductOrder> products) {
+        PredefinedOrder(List<Messages.OrderRequest.ProductOrder> products) {
             this.products = products;
         }
     }
@@ -82,7 +81,7 @@ public class CustomerOrdersConfig {
     /**
      * Holt die nächste vordefinierte Bestellung (Round-Robin)
      */
-    public static synchronized OrderRequest getNextPredefinedOrder(String orderId, String customerId) {
+    public static synchronized Messages.OrderRequest getNextPredefinedOrder(String orderId, String customerId) {
         if (PREDEFINED_ORDERS.isEmpty()) {
             throw new IllegalStateException("Keine vordefinierten Bestellungen konfiguriert!");
         }
@@ -92,7 +91,7 @@ public class CustomerOrdersConfig {
         currentOrderIndex = (currentOrderIndex + 1) % PREDEFINED_ORDERS.size();
         
         // Erstelle OrderRequest
-        OrderRequest order = new OrderRequest();
+        Messages.OrderRequest order = new Messages.OrderRequest();
         order.orderId = orderId;
         order.customerId = customerId;
         order.products = new ArrayList<>(predefined.products);
