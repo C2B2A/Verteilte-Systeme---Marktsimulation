@@ -34,19 +34,13 @@ public class CustomerApp {
         "PA", "PB", "PC", "PD", "PE", "PF"
     );
     
-    private ZMQ.Socket pushSocket; // PUSH-Socket als Feld
-    
     public CustomerApp(String customerId) {
         this.customerId = customerId;
         this.context = new ZContext();
         this.scheduler = Executors.newScheduledThreadPool(1);
         this.random = new Random();
         this.orderCounter = new AtomicInteger(0);
-        // PUSH-Socket einmalig erstellen und mit allen Marketplaces verbinden
-        this.pushSocket = context.createSocket(SocketType.PUSH);
-        for (int port : MARKETPLACE_PORTS) {
-            this.pushSocket.connect("tcp://localhost:" + port);
-        }
+        // Kein Socket als Feld mehr nötig
     }
     
     public void start() {
@@ -95,13 +89,8 @@ public class CustomerApp {
     
     private void sendOrder() {
         try {
-            // Erstelle Bestellung
-            String orderId = customerId + "-ORD" + 
-                           String.format("%04d", orderCounter.incrementAndGet());
-            
+            String orderId = customerId + "-ORD" + String.format("%04d", orderCounter.incrementAndGet());
             OrderRequest order;
-            
-            // Entscheidung: Generiert oder vordefiniert
             if (CustomerOrdersConfig.shouldGenerateOrders()) {
                 order = createRandomOrder(orderId);
                 System.out.println("\n[" + customerId + "] Generiere zufällige Bestellung");
@@ -109,24 +98,30 @@ public class CustomerApp {
                 order = CustomerOrdersConfig.getNextPredefinedOrder(orderId, customerId);
                 System.out.println("\n[" + customerId + "] Verwende vordefinierte Bestellung");
             }
-            
-            // Wähle zufälligen Marketplace
-            int marketplacePort = MARKETPLACE_PORTS[random.nextInt(MARKETPLACE_PORTS.length)];
-            String marketplaceId = marketplacePort == 5570 ? "M1" : "M2";
-            
-            System.out.println("\n========================================");
-            System.out.println("[" + customerId + "] Neue Bestellung an " + marketplaceId);
+            // Immer Bestellinhalt anzeigen
+            System.out.println("========================================");
+            System.out.println("[" + customerId + "] Bestellung an Marketplace:");
             System.out.println("Order ID: " + order.orderId);
             System.out.println("Produkte:");
             for (OrderRequest.ProductOrder p : order.products) {
                 System.out.println("  - " + p.productId + " x " + p.quantity);
             }
             System.out.println("========================================");
-            
-            // Sende an Marketplace via PUSH
+            int marketplacePort = MARKETPLACE_PORTS[random.nextInt(MARKETPLACE_PORTS.length)];
+            String marketplaceId = marketplacePort == 5570 ? "M1" : "M2";
             String message = MessageHandler.toJson(order);
-            pushSocket.send(message); // Socket wiederverwenden
-            System.out.println("[" + customerId + "] Bestellung gesendet!");
+            try (ZMQ.Socket reqSocket = context.createSocket(SocketType.REQ)) {
+                reqSocket.setReceiveTimeOut(5000); // 5 Sekunden Timeout
+                reqSocket.connect("tcp://localhost:" + marketplacePort);
+                reqSocket.send(message);
+                System.out.println("[" + customerId + "] Bestellung gesendet an " + marketplaceId + "!");
+                String response = reqSocket.recvStr();
+                if (response == null) {
+                    System.out.println("[" + customerId + "] Keine Antwort vom Marketplace (Timeout nach 5s). Neue Bestellung wird vorbereitet.");
+                } else {
+                    System.out.println("[" + customerId + "] Antwort vom Marketplace: " + response);
+                }
+            }
         } catch (Exception e) {
             System.err.println("[" + customerId + "] Fehler beim Senden: " + e.getMessage());
         }
@@ -173,7 +168,6 @@ public class CustomerApp {
         System.out.println("\n[" + customerId + "] Fahre herunter...");
         running = false;
         scheduler.shutdown();
-        if (pushSocket != null) pushSocket.close(); // Socket schließen
         context.close();
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
