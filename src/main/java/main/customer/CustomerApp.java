@@ -78,7 +78,7 @@ public class CustomerApp {
         int orderDelay = ConfigLoader.getOrderDelay();
         scheduler.scheduleWithFixedDelay(
             this::sendOrder,
-            5000L, // Initial delay
+            8000L, // Initial delay
             orderDelay,
             TimeUnit.MILLISECONDS
         );
