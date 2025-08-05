@@ -74,11 +74,11 @@ public class CustomerApp {
         // Starte Response-Empfänger (wie OrderProcessor)
         scheduler.execute(this::receiveMarketplaceResponses);
         
-        // Starte Order-Generator
+        // Scheduler startet periodisches Senden von Bestellungen
         int orderDelay = ConfigLoader.getOrderDelay();
         scheduler.scheduleWithFixedDelay(
             this::sendOrder,
-            2000, // Initial delay
+            5000L, // Initial delay
             orderDelay,
             TimeUnit.MILLISECONDS
         );
