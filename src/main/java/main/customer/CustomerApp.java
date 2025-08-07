@@ -30,7 +30,7 @@ public class CustomerApp {
     
     // Verfügbare Produkte im System
     private static final List<String> AVAILABLE_PRODUCTS = Arrays.asList(
-        "PA", "PB", "PC", "PD", "PE", "PF"
+        "PA", "PB", "PC", "PD", "PE", "PF", "PG", "PH", "PI", "PJ"
     );
     
     public CustomerApp(String customerId) {
@@ -120,9 +120,9 @@ public class CustomerApp {
             
             // Sende asynchron über persistenten Socket (wie OrderProcessor)
             String message = Messages.toJson(order);
-            dealerSocket.sendMore("");  // Leerer Routing-Frame für Auto-Routing
+            // dealerSocket.sendMore("");  // Leerer Routing-Frame für Auto-Routing, nicht nötig
             dealerSocket.send(message); // Message-Frame
-            System.out.println("[" + customerId + "] Bestellung gesendet (asynchron)!");
+            System.out.println("[" + customerId + "] Bestellung gesendet!");
         } catch (Exception e) {
             System.err.println("[" + customerId + "] Fehler beim Senden: " + e.getMessage());
         }

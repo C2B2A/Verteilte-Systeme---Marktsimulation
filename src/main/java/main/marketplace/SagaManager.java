@@ -174,7 +174,7 @@ public class SagaManager {
                              saga.status + " (Dauer: " + duration + "ms)");
             
             // Optional: Saga nach Abschluss entfernen
-            // activeSagas.remove(orderId);
+            activeSagas.remove(orderId);
         }
     }
     

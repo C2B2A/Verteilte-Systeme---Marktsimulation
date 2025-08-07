@@ -144,11 +144,15 @@ public class MarketplaceApp {
     private List<String> findSellersForProduct(String productId) {
         Map<String, List<String>> productSellerMap = new HashMap<>();
         productSellerMap.put("PA", Arrays.asList("S1"));
-        productSellerMap.put("PB", Arrays.asList("S1", "S5"));
-        productSellerMap.put("PC", Arrays.asList("S2", "S3"));
-        productSellerMap.put("PD", Arrays.asList("S2", "S4"));
-        productSellerMap.put("PE", Arrays.asList("S3", "S4"));
-        productSellerMap.put("PF", Arrays.asList("S5"));
+        productSellerMap.put("PB", Arrays.asList("S1"));
+        productSellerMap.put("PC", Arrays.asList("S2"));
+        productSellerMap.put("PD", Arrays.asList("S2"));
+        productSellerMap.put("PE", Arrays.asList("S3"));
+        productSellerMap.put("PF", Arrays.asList("S3"));
+        productSellerMap.put("PG", Arrays.asList("S4"));
+        productSellerMap.put("PH", Arrays.asList("S4"));
+        productSellerMap.put("PI", Arrays.asList("S5"));
+        productSellerMap.put("PJ", Arrays.asList("S5"));
         
         return productSellerMap.getOrDefault(productId, new ArrayList<>());
     }

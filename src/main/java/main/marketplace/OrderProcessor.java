@@ -20,7 +20,8 @@ public class OrderProcessor {
     private final ZContext context;
     private final ExecutorService executor;
     private final Map<String, Integer> sellerPorts;
-    private final ZMQ.Socket dealerSocket;
+    private final Map<String, ZMQ.Socket> sellerSockets; // Ein Socket pro Seller
+    private final ZMQ.Socket dealerSocket; // Für direkte Kommunikation
     private final int networkLatencyMs = 50; // Simulierte Latenz (konfigurierbar)
     
     // Seller-Port-Konfiguration
@@ -35,11 +36,15 @@ public class OrderProcessor {
     // Produkt-zu-Seller Mapping (korrekte Verteilung)
     private static final Map<String, List<String>> PRODUCT_SELLER_MAP = Map.of(
         "PA", Arrays.asList("S1"),
-        "PB", Arrays.asList("S1", "S5"),  // B bei S1 und S5!
-        "PC", Arrays.asList("S2", "S3"),  // C bei S2 und S3!
-        "PD", Arrays.asList("S2", "S4"),  // D bei S2 und S4!
-        "PE", Arrays.asList("S3", "S4"),  // E bei S3 und S4!
-        "PF", Arrays.asList("S5")
+        "PB", Arrays.asList("S1"),  // B bei S1 und S5!
+        "PC", Arrays.asList("S2"),  // C bei S2 und S3!
+        "PD", Arrays.asList("S2"),  // D bei S2 und S4!
+        "PE", Arrays.asList("S3"),  // E bei S3 und S4!
+        "PF", Arrays.asList("S3"),
+        "PG", Arrays.asList("S4"),
+        "PH", Arrays.asList("S4"),
+        "PI", Arrays.asList("S5"),
+        "PJ", Arrays.asList("S5")
     );
     
     public OrderProcessor(String marketplaceId, SagaManager sagaManager) {
@@ -48,13 +53,28 @@ public class OrderProcessor {
         this.context = new ZContext();
         this.executor = Executors.newFixedThreadPool(10);
         this.sellerPorts = new HashMap<>(DEFAULT_SELLERS);
+        this.sellerSockets = new HashMap<>();
         this.dealerSocket = context.createSocket(SocketType.DEALER);
         this.dealerSocket.setIdentity(marketplaceId.getBytes(ZMQ.CHARSET));
-        for (int port : sellerPorts.values()) {
-            this.dealerSocket.connect("tcp://localhost:" + port);
+        
+        // Erstelle einen DEALER Socket für jeden Seller
+        for (Map.Entry<String, Integer> entry : DEFAULT_SELLERS.entrySet()) {
+            String sellerId = entry.getKey();
+            int port = entry.getValue();
+            
+            ZMQ.Socket socket = context.createSocket(SocketType.DEALER);
+            // Setze die Identität für den Socket!
+            socket.setIdentity(marketplaceId.getBytes(ZMQ.CHARSET)); // z.B. "Marketplace-1"
+            socket.connect("tcp://localhost:" + port);
+            sellerSockets.put(sellerId, socket);
         }
-        // Starte zentralen Empfangs-Thread
-        executor.submit(this::receiveSellerResponses);
+        
+        // Starte Empfangs-Thread für jeden Seller
+        for (Map.Entry<String, ZMQ.Socket> entry : sellerSockets.entrySet()) {
+            String sellerId = entry.getKey();
+            ZMQ.Socket socket = entry.getValue();
+            executor.submit(() -> receiveSellerResponses(sellerId, socket));
+        }
     }
     
     /**
@@ -124,17 +144,27 @@ public class OrderProcessor {
     private boolean sendReservationRequest(String orderId, String productId, int quantity, String sellerId) {
         try {
             Thread.sleep(networkLatencyMs);
+            
             Messages.ReserveRequest request = new Messages.ReserveRequest();
             request.orderId = orderId;
             request.productId = productId;
             request.quantity = quantity;
             request.marketplaceId = marketplaceId;
+            
             String json = Messages.toJson(request);
             System.out.println("[OrderProcessor] Sende an " + sellerId + ": " + json);
-            dealerSocket.sendMore(sellerId);
-            dealerSocket.send(json);
-            // Keine Antwort abwarten!
+            
+            // Hole den richtigen Socket für diesen Seller
+            ZMQ.Socket sellerSocket = sellerSockets.get(sellerId);
+            if (sellerSocket == null) {
+                System.err.println("[OrderProcessor] Kein Socket für Seller " + sellerId);
+                return false;
+            }
+            
+            // Sende direkt über den dedizierten Socket
+            sellerSocket.send(json);
             return true;
+            
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ZMQException e) {
@@ -144,15 +174,16 @@ public class OrderProcessor {
         return false;
     }
     
-    // Empfangs-Thread für alle Seller-Antworten
-    private void receiveSellerResponses() {
+    /**
+     * Empfangs-Thread für einen spezifischen Seller
+     */
+    private void receiveSellerResponses(String sellerId, ZMQ.Socket socket) {
         while (!Thread.currentThread().isInterrupted()) {
             try {
-                byte[] sellerIdBytes = dealerSocket.recv(0);
-                if (sellerIdBytes == null) continue;
-                String sellerId = new String(sellerIdBytes, ZMQ.CHARSET);
-                String response = dealerSocket.recvStr(0);
+                String response = socket.recvStr(0);
                 if (response != null && !response.isEmpty()) {
+                    System.out.println("[OrderProcessor] Antwort von " + sellerId + ": " + response);
+                    
                     String type = Messages.getMessageType(response);
                     switch (type) {
                         case "ReserveResponse":
@@ -166,12 +197,14 @@ public class OrderProcessor {
                             // Kann optional verarbeitet werden
                             break;
                         default:
-                            // Unbekannter Typ
+                            System.err.println("[OrderProcessor] Unbekannter Nachrichtentyp: " + type);
                             break;
                     }
                 }
             } catch (Exception e) {
-                System.err.println("[OrderProcessor] Fehler beim Empfang: " + e.getMessage());
+                if (!Thread.currentThread().isInterrupted()) {
+                    System.err.println("[OrderProcessor] Fehler beim Empfang von " + sellerId + ": " + e.getMessage());
+                }
             }
         }
     }
@@ -269,10 +302,14 @@ public class OrderProcessor {
     private void sendConfirmation(Messages.ConfirmRequest confirm, String sellerId) {
         try {
             Thread.sleep(networkLatencyMs);
+            
             String json = Messages.toJson(confirm);
             System.out.println("[OrderProcessor] Sende Bestätigung an " + sellerId + ": " + json);
-            dealerSocket.sendMore(sellerId);
-            dealerSocket.send(json);
+            
+            ZMQ.Socket sellerSocket = sellerSockets.get(sellerId);
+            if (sellerSocket != null) {
+                sellerSocket.send(json);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ZMQException e) {
@@ -286,10 +323,14 @@ public class OrderProcessor {
     private void sendCancellation(Messages.CancelRequest cancel, String sellerId) {
         try {
             Thread.sleep(networkLatencyMs);
+            
             String json = Messages.toJson(cancel);
             System.out.println("[OrderProcessor] Sende Stornierung an " + sellerId + ": " + json);
-            dealerSocket.sendMore(sellerId);
-            dealerSocket.send(json);
+            
+            ZMQ.Socket sellerSocket = sellerSockets.get(sellerId);
+            if (sellerSocket != null) {
+                sellerSocket.send(json);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ZMQException e) {
@@ -302,7 +343,12 @@ public class OrderProcessor {
      */
     public void shutdown() {
         executor.shutdown();
-        dealerSocket.close();
+        
+        // Schließe alle Seller-Sockets
+        for (ZMQ.Socket socket : sellerSockets.values()) {
+            socket.close();
+        }
+        
         context.close();
     }
 }

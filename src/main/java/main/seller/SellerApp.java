@@ -44,16 +44,16 @@ public class SellerApp {
                 inventory.addProduct("PD", "Produkt D", initialStock - 2);
                 break;
             case "S3":
-                inventory.addProduct("PC", "Produkt C", initialStock);
-                inventory.addProduct("PE", "Produkt E", initialStock - 2);
+                inventory.addProduct("PE", "Produkt E", initialStock);
+                inventory.addProduct("PF", "Produkt F", initialStock - 2);
                 break;
             case "S4":
-                inventory.addProduct("PD", "Produkt D", initialStock);
-                inventory.addProduct("PE", "Produkt E", initialStock - 2);
+                inventory.addProduct("PG", "Produkt G", initialStock);
+                inventory.addProduct("PH", "Produkt H", initialStock - 2);
                 break;
             case "S5":
-                inventory.addProduct("PF", "Produkt F", initialStock);
-                inventory.addProduct("PB", "Produkt B", initialStock - 2);
+                inventory.addProduct("PI", "Produkt I", initialStock);
+                inventory.addProduct("PJ", "Produkt J", initialStock - 2);
                 break;
             default:
                 // Fallback für unbekannte Seller
