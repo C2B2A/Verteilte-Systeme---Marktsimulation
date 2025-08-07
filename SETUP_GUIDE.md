@@ -18,10 +18,31 @@ cd Verteilte-Systeme---Marktsimulation
 build clean install
 ```
 ### Mac/Linux:
-```bash/cmd?
-chmod +x mvnw     #only necessary the first time
+Was funktioniert hat für Mac:
+Schritt 1 (optional wenn Schritt 2 nicht direkt funktioniert):
+brew install maven 
+    (installiert Maven lokal)
+Schritt 2: (ggf. vorher VS Code Neu starten)
+mvn clean install --> BUILD SUCCESS
+
+danach:
+Maven Wrapper verwenden (dann muss man (angeblich) Maven nicht installieren)
+Schritt 1:
+mvn -N io.takari:maven:wrapper
+Schritt 2:
 ./mvnw clean install
-```
+(Hinweis: man brauchst Maven nicht mehr global auf dem System installiert zu haben.)
+
+BUILD SUCCESS
+
+Nach dem Build die Prozesse auf dem Mac Starten:
+Schritt 1:
+Skript ausführbar machen mit: chmod +x start-system.sh
+Schritt 2:
+Ausführen mit: ./start-system.sh
+ 
+Alle Prozesse beenden mit:
+pkill -f marktsimulation --- kann sein, dass Ctrl+C nicht reicht!!
 
 **First time:** The Maven wrapper automatically installs everything. Can take a short time, after this everything should be set.
 
