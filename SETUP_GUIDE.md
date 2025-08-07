@@ -3,7 +3,7 @@
 ## Requirements
 - **Java 17** or higher installed ([Download](https://adoptium.net/))
 - **Java Development Kit - JDK** has to be installed
-- **Git** installed
+- **Git** installed for Development
 - No Maven installation needed (Maven wrappers are implemented)
 
 ## Quick Start ------------------------------
@@ -14,7 +14,7 @@ cd Verteilte-Systeme---Marktsimulation
 ## Build project
 **If a JDK is installed or just has been installed the IDE has to be restartet. Then wait until "Java: Ready" appears!**
 ### Windows:
-```cmd
+WICHTIG: cmd als Terminal nutzen - NICHT POWERSHELL
 build clean install
 ```
 ### Mac/Linux:
