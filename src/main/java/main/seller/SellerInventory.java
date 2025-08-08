@@ -5,15 +5,15 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Verwaltet die Produkte und Reservierungen eines Sellers
- * Thread-safe für gleichzeitige Zugriffe
+ * Manages a seller's products and reservations
+ * Thread-safe for concurrent access
  */
 public class SellerInventory {
     private final Map<String, ProductInfo> products = new HashMap<>();
     private final Map<String, Map<String, Integer>> reservations = new ConcurrentHashMap<>();
     
     /**
-     * Interne Produktklasse
+     * Internal product class
      */
     private static class ProductInfo {
         private final String productId;
@@ -126,10 +126,10 @@ public class SellerInventory {
         System.out.println("\n=== Inventory Status ===");
         for (ProductInfo p : products.values()) {
             System.out.println(p.getProductId() + ": " + p.getName() + 
-                             " - Bestand: " + p.getStock());
+                             " - Available: " + p.getStock());
         }
         if (!reservations.isEmpty()) {
-            System.out.println("Aktive Reservierungen: " + reservations.size());
+            System.out.println("Active reservations: " + reservations.size());
         }
     }
 }

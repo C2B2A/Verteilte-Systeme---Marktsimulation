@@ -6,25 +6,25 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Konfiguration für Customer-Bestellungen
- * Ermöglicht Umschaltung zwischen generierten und vordefinierten Bestellungen
+ * Configuration for customer orders
+* Allows switching between generated and predefined orders
  */
 public class CustomerOrdersConfig {
-    
-    // Hauptschalter: true = automatisch generieren, false = vordefinierte verwenden
+
+    // Main switch: true = generate automatically, false = use predefined
     private static final boolean GENERATE_ORDERS = true;
-    
-    // Vordefinierte Bestellungen - können nach Bedarf angepasst werden
+
+    // Predefined orders - can be adjusted as needed
     private static final List<PredefinedOrder> PREDEFINED_ORDERS = Arrays.asList(
-        // Bestellung 1: Einfache Bestellung von S1
+        // Order 1: Simple order from S1
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PA", 2),
                 new Messages.OrderRequest.ProductOrder("PB", 1)
             )
         ),
-        
-        // Bestellung 2: Produkte von mehreren Sellern inkl. neuer Produkte
+
+        // Order 2: Products from multiple sellers including new products
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PC", 1),
@@ -32,8 +32,8 @@ public class CustomerOrdersConfig {
                 new Messages.OrderRequest.ProductOrder("PF", 1)
             )
         ),
-        
-        // Bestellung 3: Test für Failover (PC bei S2 und S3 verfügbar), plus neues Produkt
+
+        // Order 3: Test for failover (PC available at S2 and S3), plus new product
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PC", 3),
@@ -41,8 +41,8 @@ public class CustomerOrdersConfig {
                 new Messages.OrderRequest.ProductOrder("PG", 1)
             )
         ),
-        
-        // Bestellung 4: Große Bestellung mit neuen Produkten
+
+        // Order 4: Large order with new products
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PA", 5),
@@ -50,18 +50,18 @@ public class CustomerOrdersConfig {
                 new Messages.OrderRequest.ProductOrder("PH", 2)
             )
         ),
-        
-        // Bestellung 5: Test für doppelte Produkte (fachlicher Fehler) und neues Produkt
+
+        // Order 5: Test for duplicate products (technical error) and new product
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PE", 2),
-                new Messages.OrderRequest.ProductOrder("PE", 1), // Duplikat!
+                new Messages.OrderRequest.ProductOrder("PE", 1), // Duplicate!
                 new Messages.OrderRequest.ProductOrder("PD", 1),
                 new Messages.OrderRequest.ProductOrder("PI", 1)
             )
         ),
-        
-        // Bestellung 6: Nur neue Produkte
+
+        // Order 6: Only new products
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PF", 2),
@@ -71,8 +71,8 @@ public class CustomerOrdersConfig {
                 new Messages.OrderRequest.ProductOrder("PJ", 2)
             )
         ),
-        
-        // Bestellung 7: Mischung aus alten und neuen Produkten
+
+        // Order 7: Mixture of old and new products
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PB", 1),
@@ -81,8 +81,8 @@ public class CustomerOrdersConfig {
             )
         )
     );
-    
-    // Hilfklasse für vordefinierte Bestellungen
+
+    // Helper class for predefined orders
     private static class PredefinedOrder {
         final List<Messages.OrderRequest.ProductOrder> products;
         
@@ -90,30 +90,30 @@ public class CustomerOrdersConfig {
             this.products = products;
         }
     }
-    
-    // Index für Round-Robin durch vordefinierte Bestellungen
+
+    // Index for Round-Robin through predefined orders
     private static int currentOrderIndex = 0;
     
     /**
-     * Gibt zurück ob Bestellungen generiert werden sollen
+     * Returns whether orders should be generated
      */
     public static boolean shouldGenerateOrders() {
         return GENERATE_ORDERS;
     }
     
     /**
-     * Holt die nächste vordefinierte Bestellung (Round-Robin)
+     * Returns the next predefined order (Round-Robin)
      */
     public static synchronized Messages.OrderRequest getNextPredefinedOrder(String orderId, String customerId) {
         if (PREDEFINED_ORDERS.isEmpty()) {
-            throw new IllegalStateException("Keine vordefinierten Bestellungen konfiguriert!");
+            throw new IllegalStateException("No predefined orders configured!");
         }
-        
-        // Hole nächste Bestellung im Round-Robin Verfahren
+
+        // Get next order in round-robin fashion
         PredefinedOrder predefined = PREDEFINED_ORDERS.get(currentOrderIndex);
         currentOrderIndex = (currentOrderIndex + 1) % PREDEFINED_ORDERS.size();
-        
-        // Erstelle OrderRequest
+
+        // Create OrderRequest
         Messages.OrderRequest order = new Messages.OrderRequest();
         order.orderId = orderId;
         order.customerId = customerId;
@@ -123,7 +123,7 @@ public class CustomerOrdersConfig {
     }
     
     /**
-     * Gibt die Anzahl der vordefinierten Bestellungen zurück
+     * Returns the number of predefined orders
      */
     public static int getPredefinedOrderCount() {
         return PREDEFINED_ORDERS.size();

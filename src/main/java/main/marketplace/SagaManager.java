@@ -5,8 +5,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Verwaltet SAGA-Transaktionen für Bestellungen
- * Speichert Status und koordiniert Rollbacks
+ * Manages SAGA transactions for orders
+ * Saves status and coordinates rollbacks
  */
 public class SagaManager {
     
@@ -20,8 +20,8 @@ public class SagaManager {
         COMPENSATING,
         FAILED
     }
-    
-    // Saga für eine Bestellung
+
+    // Saga for an order
     public static class OrderSaga {
         public final String orderId;
         public final Messages.OrderRequest order;
@@ -29,8 +29,8 @@ public class SagaManager {
         public final Map<String, Messages.ReserveResponse> reservations;
         public final Set<String> pendingReservations;
         public final Set<String> failedReservations;
-        public final long startTimeMs; // Zeitstempel für Timeout
-        
+        public final long startTimeMs; // Timestamp for timeout
+
         public OrderSaga(Messages.OrderRequest order) {
             this.orderId = order.orderId;
             this.order = order;
@@ -59,24 +59,24 @@ public class SagaManager {
             return successful;
         }
     }
-    
-    // Aktive Sagas
+
+    // Active SAGAs
     private final Map<String, OrderSaga> activeSagas = new ConcurrentHashMap<>();
     
     /**
-     * Startet eine neue SAGA für eine Bestellung
+     * Starts a new SAGA for an order
      */
     public OrderSaga startSaga(Messages.OrderRequest order) {
         OrderSaga saga = new OrderSaga(order);
         activeSagas.put(order.orderId, saga);
-        
-        System.out.println("[SAGA] Gestartet für Order " + order.orderId + 
-                         " mit " + order.products.size() + " Produkten");
+
+        System.out.println("[SAGA] Started for Order " + order.orderId +
+                         " with " + order.products.size() + " products");
         return saga;
     }
     
     /**
-     * Registriert eine ausstehende Reservierung
+     * Registers a pending reservation
      */
     public void registerPendingReservation(String orderId, String productId) {
         OrderSaga saga = activeSagas.get(orderId);
@@ -87,55 +87,55 @@ public class SagaManager {
     }
     
     /**
-     * Verarbeitet eine Reservierungsantwort
+     * Processes a reservation response
      */
     public void handleReservationResponse(Messages.ReserveResponse response) {
         OrderSaga saga = activeSagas.get(response.orderId);
         if (saga == null) {
-            System.err.println("[SAGA] Keine aktive Saga (mehr) für Order " + response.orderId);
+            System.err.println("[SAGA] No active SAGA (anymore) for Order " + response.orderId);
             return;
         }
-        
-        // Speichere Antwort
+
+        // Store response
         saga.reservations.put(response.productId, response);
         saga.pendingReservations.remove(response.productId);
         
         if ("FAILED".equals(response.status)) {
             saga.failedReservations.add(response.productId);
-            System.out.println("[SAGA] Reservierung fehlgeschlagen für " + 
+            System.out.println("[SAGA] Reservation failed for " +
                              response.productId + ": " + response.reason);
         } else {
-            System.out.println("[SAGA] Reservierung erfolgreich für " + 
-                             response.productId + " bei " + response.sellerId);
+            System.out.println("[SAGA] Reservation successful for " +
+                             response.productId + " at " + response.sellerId);
         }
-        
-        // Prüfe ob alle Antworten da sind
+
+        // Check if all responses are in
         if (saga.isComplete()) {
             if (saga.hasFailures()) {
-                System.out.println("[SAGA] Order " + saga.orderId + 
-                                 " hat Fehler - starte Kompensation");
+                System.out.println("[SAGA] Order " + saga.orderId +
+                                 " has failures - starting compensation");
                 saga.status = SagaStatus.COMPENSATING;
             } else {
-                System.out.println("[SAGA] Order " + saga.orderId + 
-                                 " komplett reserviert - bereit zur Bestätigung");
+                System.out.println("[SAGA] Order " + saga.orderId +
+                                 " fully reserved - ready for confirmation");
                 saga.status = SagaStatus.RESERVED;
             }
         }
     }
     
     /**
-     * Behandelt Timeout für eine Reservierung
+     * Handles timeout for a reservation
      */
     public void handleReservationTimeout(String orderId, String productId) {
         OrderSaga saga = activeSagas.get(orderId);
         if (saga != null) {
             saga.pendingReservations.remove(productId);
             saga.failedReservations.add(productId);
-            
-            System.out.println("[SAGA] Timeout für Produkt " + productId + 
-                             " in Order " + orderId);
-            
-            // Erstelle künstliche Fehler-Response
+
+            System.out.println("[SAGA] Timeout for product " + productId +
+                             " in order " + orderId);
+
+            // Create artificial error response
             Messages.ReserveResponse timeoutResponse = new Messages.ReserveResponse();
             timeoutResponse.orderId = orderId;
             timeoutResponse.productId = productId;
@@ -150,7 +150,7 @@ public class SagaManager {
     }
     
     /**
-     * Gibt alle erfolgreichen Reservierungen für Rollback zurück
+     * Returns all successful reservations for rollback
      */
     public List<Messages.ReserveResponse> getReservationsForRollback(String orderId) {
         OrderSaga saga = activeSagas.get(orderId);
@@ -161,34 +161,34 @@ public class SagaManager {
     }
     
     /**
-     * Markiert Saga als abgeschlossen
+     * Marks the saga as completed
      */
     public void completeSaga(String orderId, boolean success) {
         OrderSaga saga = activeSagas.get(orderId);
         if (saga != null) {
             saga.status = success ? SagaStatus.COMPLETED : SagaStatus.FAILED;
             long duration = System.currentTimeMillis() - saga.startTimeMs;
-            
-            System.out.println("[SAGA] Order " + orderId + " abgeschlossen: " + 
-                             saga.status + " (Dauer: " + duration + "ms)");
-            
-            // Optional: Saga nach Abschluss entfernen
+
+            System.out.println("[SAGA] Order " + orderId + " completed: " +
+                             saga.status + " (Duration: " + duration + "ms)");
+
+            // Optional: Remove saga after completion
             activeSagas.remove(orderId);
         }
     }
     
     /**
-     * Gibt Saga-Status zurück
+     * Returns the saga status
      */
     public OrderSaga getSaga(String orderId) {
         return activeSagas.get(orderId);
     }
     
     /**
-     * Debug: Alle aktiven Sagas ausgeben
+     * Debug: All active Sagas
      */
     public void printActiveSagas() {
-        System.out.println("\n=== Aktive SAGAs ===");
+        System.out.println("\n=== Active SAGAs ===");
         for (OrderSaga saga : activeSagas.values()) {
             System.out.println("Order " + saga.orderId + ": " + saga.status + 
                              " (Pending: " + saga.pendingReservations.size() + 
@@ -198,7 +198,7 @@ public class SagaManager {
     }
     
     /**
-     * Gibt alle SAGAs zurück, die den Timeout überschreiten
+     * Returns all Sagas that exceed the timeout
      */
     public List<OrderSaga> getTimedOutSagas(long timeoutMs) {
         long now = System.currentTimeMillis();
@@ -212,7 +212,7 @@ public class SagaManager {
     }
     
     /**
-     * Entfernt eine SAGA aus den aktiven SAGAs
+     * Removes a saga from the active sagas
      */
     public void removeSaga(String orderId) {
         activeSagas.remove(orderId);

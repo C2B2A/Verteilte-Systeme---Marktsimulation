@@ -5,8 +5,8 @@ import main.seller.SellerApp;
 import main.customer.CustomerApp;
 
 /**
- * Hauptklasse zum Starten von Marketplace, Seller oder Customer
- * Verwendung: java -jar <jar> --mode=<marketplace|seller|customer> [weitere optionen]
+ * Main class for starting Marketplace, Seller, or Customer
+ * Usage: java -jar <jar> --mode=<marketplace|seller|customer> [more options]
  */
 public class MainLauncher {
     
@@ -17,8 +17,8 @@ public class MainLauncher {
         }
         
         String mode = null;
-        
-        // Parse mode aus verschiedenen Formaten
+
+        // Parse mode from different formats
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("--mode=")) {
                 // Format: --mode=marketplace
@@ -32,12 +32,12 @@ public class MainLauncher {
         }
         
         if (mode == null) {
-            System.err.println("FEHLER: --mode Parameter fehlt!");
+            System.err.println("ERROR: --mode parameter is missing!");
             printUsage();
             return;
         }
-        
-        // Starte entsprechenden Modus
+
+        // Start corresponding mode
         switch (mode) {
             case "marketplace":
                 MarketplaceApp.main(args);
@@ -52,34 +52,34 @@ public class MainLauncher {
                 break;
                 
             default:
-                System.err.println("FEHLER: Unbekannter Modus: " + mode);
+                System.err.println("ERROR: Unknown mode: " + mode);
                 printUsage();
         }
     }
     
     private static void printUsage() {
         System.out.println("\n=== SCB Marketplace System ===");
-        System.out.println("\nVerwendung:");
-        System.out.println("  java -jar marktsimulation.jar --mode=<modus> [optionen]");
-        System.out.println("\nModi:");
-        System.out.println("  marketplace  - Startet einen Marketplace");
-        System.out.println("  seller       - Startet einen Seller");
-        System.out.println("  customer     - Startet einen Customer");
-        System.out.println("\nMarketplace Optionen:");
+        System.out.println("\nUsage:");
+        System.out.println("  java -jar marktsimulation.jar --mode=<mode> [options]");
+        System.out.println("\nModes:");
+        System.out.println("  marketplace  - Start a Marketplace");
+        System.out.println("  seller       - Start a Seller");
+        System.out.println("  customer     - Start a Customer");
+        System.out.println("\nMarketplace Options:");
         System.out.println("  --id=<id>              Marketplace ID (default: M1)");
-        System.out.println("  --config=<datei>       Konfigurations-Datei");
-        System.out.println("\nSeller Optionen:");
+        System.out.println("  --config=<datei>       Configuration file");
+        System.out.println("\nSeller Options:");
         System.out.println("  --id=<id>              Seller ID (default: S1)");
-        System.out.println("  --port=<port>          Port-Nummer (default: 5556)");
-        System.out.println("  --config=<datei>       Konfigurations-Datei");
-        System.out.println("\nCustomer Optionen:");
+        System.out.println("  --port=<port>          Port number (default: 5556)");
+        System.out.println("  --config=<datei>       Configuration file");
+        System.out.println("\nCustomer Options:");
         System.out.println("  --id=<id>              Customer ID (default: C1)");
-        System.out.println("  --config=<datei>       Konfigurations-Datei");
-        System.out.println("\nBeispiele:");
+        System.out.println("  --config=<datei>       Configuration file");
+        System.out.println("\nExamples:");
         System.out.println("  java -jar marktsimulation.jar --mode=seller --id=S1 --port=5556");
         System.out.println("  java -jar marktsimulation.jar --mode=marketplace --id=M1");
         System.out.println("  java -jar marktsimulation.jar --mode=customer --id=C1");
-        System.out.println("\nKorrekte Produktverteilung:");
+        System.out.println("\nCorrect Product Distribution:");
         System.out.println("  Seller S1: PA, PB");
         System.out.println("  Seller S2: PC, PD");
         System.out.println("  Seller S3: PC, PE");

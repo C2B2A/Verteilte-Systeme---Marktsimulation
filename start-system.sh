@@ -4,21 +4,21 @@ echo "==================================="
 echo "SCB Marketplace System Start Script"
 echo "==================================="
  
-# Pfad zur JAR
+# Path to JAR
 JAR="target/marktsimulation-1.0.0-jar-with-dependencies.jar"
- 
-# Prüfe ob JAR existiert
+
+# Check if JAR exists
 if [ ! -f "$JAR" ]; then
-    echo "FEHLER: JAR nicht gefunden!"
-    echo "Bitte zuerst 'mvn clean install' ausführen"
+    echo "ERROR: JAR not found!"
+    echo "Please run 'mvn clean install' first"
     exit 1
 fi
  
 echo
-echo "Starte 5 Seller..."
+echo "Starting 5 Sellers..."
 echo
  
-# Starte Seller S1–S5 auf Ports 5556–5560
+# Start Seller S1–S5 on Ports 5556–5560
 java -jar "$JAR" --mode=seller --id=S1 --port=5556 &
 sleep 1
 java -jar "$JAR" --mode=seller --id=S2 --port=5557 &
@@ -30,45 +30,45 @@ sleep 1
 java -jar "$JAR" --mode=seller --id=S5 --port=5560 &
  
 echo
-echo "Warte 3 Sekunden auf Seller-Start..."
+echo "Waiting 3 seconds for Seller to start..."
 sleep 3
- 
+
 echo
-echo "Starte 2 Marketplaces..."
+echo "Starting 2 Marketplaces..."
 echo
- 
-# Starte Marketplaces
+
+# Start Marketplaces
 java -jar "$JAR" --mode=marketplace --id=M1 &
 sleep 1
 java -jar "$JAR" --mode=marketplace --id=M2 &
  
 echo
-echo "Warte 2 Sekunden auf Marketplace-Start..."
+echo "Waiting 2 seconds for Marketplace to start..."
 sleep 2
  
 echo
-echo "Starte Customer..."
+echo "Starting Customer..."
 echo
  
-# Starte Customer
+# Start Customer
 java -jar "$JAR" --mode=customer --id=C1 &
  
 echo
 echo "==================================="
-echo "System komplett gestartet!"
+echo "System completely started!"
 echo
-echo "Architektur:"
+echo "Architecture:"
 echo "  1 Customer (C1)"
 echo "  2 Marketplaces (M1:5570, M2:5571)"
-echo "  5 Seller (S1–S5 auf Ports 5556–5560)"
+echo "  5 Seller (S1–S5 on Ports 5556–5560)"
 echo
-echo "Produktverteilung:"
+echo "Product Distribution:"
 echo "  S1: PA, PB"
 echo "  S2: PC, PD"
 echo "  S3: PC, PE"
 echo "  S4: PD, PE"
 echo "  S5: PF, PB"
 echo
-echo "Zum Beenden: Ctrl+C oder Fenster schließen"
+echo "To exit: Ctrl+C or close window"
 echo "==================================="
 echo

@@ -59,7 +59,7 @@ logs/
 *~
 
 # Projekt-spezifisch
-# Lokale Konfigurationen (falls vorhanden)
+# Local configurations (if any)
 config/local.properties
 config/development.properties
 

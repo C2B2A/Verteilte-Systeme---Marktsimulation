@@ -209,7 +209,7 @@ public class Messages {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Fehler beim Parsen der Nachricht: " + e.getMessage());
+            System.err.println("Error parsing message: " + e.getMessage());
         }
         return null;
     }

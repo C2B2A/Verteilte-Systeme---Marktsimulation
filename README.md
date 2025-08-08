@@ -1,10 +1,10 @@
 # Verteilte-Systeme---Marktsimulation
 
-Quellcode für die Marktsimulation verteilter Systeme. 
-- mind. 2 Märkte
-- mind. 5 Anbieter
-- gleichzeitige Zugriffe und Fehlerabwicklung
-- Bestellungen ganz oder gar nicht
+Source code for market simulation of distributed systems.
+- At least 2 markets
+- At least 5 providers
+- Concurrent access and error handling
+- Orders either complete or not at all
 
 # Official Task Description
 The aim of this task is for you to gain a better understanding of the implementation of distributed systems

@@ -6,22 +6,22 @@ import java.io.InputStream;
 import java.util.Properties;
 
 /**
- * Lädt Konfiguration aus Properties-Datei
- * Einfache statische Methoden für Zugriff
+ * Loads configuration from properties file
+ * Simple static methods for access
  */
 public class ConfigLoader {
     private static Properties properties;
     private static boolean loaded = false;
 
-    // Standard-Werte falls keine Config geladen wird
+    // Default values if no config is loaded
     private static final Properties defaults = new Properties();
     static {
-        // Fehlerwahrscheinlichkeiten
+        // Error probabilities
         defaults.setProperty("simulation.probability.success", "0.7");
         defaults.setProperty("simulation.probability.fail_without_response", "0.15");
         defaults.setProperty("simulation.probability.fail_with_crash", "0.15");
 
-        // Zeiten
+        // Times
         defaults.setProperty("simulation.processing_time.average", "500");
         defaults.setProperty("simulation.processing_time.std_dev", "150");
 
@@ -30,46 +30,46 @@ public class ConfigLoader {
         defaults.setProperty("marketplace.timeout", "3000");
         defaults.setProperty("seller.initial_stock", "5");
 
-        // Properties mit defaults initialisieren
+        // Properties with defaults initialize
         properties = new Properties(defaults);
     }
 
-    // Config laden
+    // Load config
     public static void loadConfig(String filename) {
         try (InputStream input = new FileInputStream(filename)) {
-            // config.properties laden (überschreibt defaults)
+            // Load config.properties (overrides defaults)
             properties.load(input);
             loaded = true;
-            System.out.println("Konfiguration geladen aus: " + filename);
-            // Debug-Ausgabe der geladenen Properties
+            System.out.println("Configuration loaded from: " + filename);
+            // Debug output of loaded properties
             // System.out.println("Loaded properties: " + properties);
         } catch (IOException e) {
-            System.err.println("Konnte Config nicht laden: " + filename);
-            System.err.println("Fehler: " + e.getMessage());
-            System.err.println("Verwende Standard-Werte");
+            System.err.println("Could not load config: " + filename);
+            System.err.println("Error: " + e.getMessage());
+            System.err.println("Using default values");
             properties = new Properties(defaults);
-            loaded = true; // Setze loaded, damit ensureLoaded() nicht erneut Standardwerte lädt
+            loaded = true; // Set loaded to true so ensureLoaded() doesn't reload defaults
         }
     }
 
-    // Wenn keine Config geladen wurde, Standard verwenden
+    // If no config is loaded, use defaults
     private static void ensureLoaded() {
         if (!loaded) {
-            // Versuche automatisch config.properties zu laden
+            // Try to automatically load config.properties
             try (InputStream input = new FileInputStream("config/config.properties")) {
                 properties.load(input);
                 loaded = true;
-                System.out.println("Konfiguration automatisch aus config/config.properties geladen.");
+                System.out.println("Configuration automatically loaded from config/config.properties.");
                 //System.out.println("Loaded properties: " + properties);
             } catch (IOException e) {
-                System.out.println("Keine config/config.properties gefunden, verwende Standard-Werte");
+                System.out.println("Could not find config/config.properties, using default values");
                 properties = new Properties(defaults);
                 loaded = true;
             }
         }
     }
 
-    // Getter-Methoden
+    // Getter methods
     public static double getSuccessProbability() {
         ensureLoaded();
         return Double.parseDouble(properties.getProperty("simulation.probability.success"));
@@ -111,8 +111,8 @@ public class ConfigLoader {
     }
 
     /**
-     * Wahrscheinlichkeit dass ein Produkt "versehentlich" nicht verfügbar ist
-     * (Fachlicher Fehler - Simulation)
+     * Probability that a product is "accidentally" unavailable
+     * (business error - simulation)
      */
     public static double getProductNotAvailableProbability() {
         ensureLoaded();
@@ -121,8 +121,8 @@ public class ConfigLoader {
     }
 
     /**
-     * Wahrscheinlichkeit für doppelte Produktanforderung in Bestellung
-     * (Fachlicher Fehler - Simulation)
+     * Probability of duplicate product requests in purchase orders
+     * (business error - simulation)
      */
     public static double getDuplicateProductProbability() {
         ensureLoaded();
@@ -130,24 +130,24 @@ public class ConfigLoader {
                 "simulation.probability.duplicate_product", "0.1"));
     }
 
-    // Config ausgeben (erweitert)
+    // Print config (extended)
     public static void printConfig() {
         ensureLoaded();
-        System.out.println("\n=== Aktuelle Konfiguration ===");
-        System.out.println("TECHNISCHE FEHLER:");
-        System.out.println("  Erfolg: " + (getSuccessProbability() * 100) + "%");
+        System.out.println("\n=== Current Configuration ===");
+        System.out.println("TECHNICAL ERRORS:");
+        System.out.println("  Success: " + (getSuccessProbability() * 100) + "%");
         System.out.println("  Timeout: " + (getFailWithoutResponseProbability() * 100) + "%");
         System.out.println("  Crash: " + (getFailWithCrashProbability() * 100) + "%");
-        System.out.println("\nFACHLICHE FEHLER:");
-        System.out.println("  Produkt nicht verfügbar: " + (getProductNotAvailableProbability() * 100) + "%");
-        System.out.println("  Doppelte Produktanforderung: " + (getDuplicateProductProbability() * 100) + "%");
-        System.out.println("\nZEITEN:");
-        System.out.println("  Bestellverzögerung: " + getOrderDelay() + "ms");
+        System.out.println("\nBUSINESS ERRORS:");
+        System.out.println("  Product not available: " + (getProductNotAvailableProbability() * 100) + "%");
+        System.out.println("  Duplicate product requests: " + (getDuplicateProductProbability() * 100) + "%");
+        System.out.println("\nTIMES:");
+        System.out.println("  Order delay: " + getOrderDelay() + "ms");
         System.out.println(
-                "  Verarbeitungszeit: " + getAverageProcessingTime() + "ms (±" + getProcessingTimeStdDev() + "ms)");
+                "  Processing time: " + getAverageProcessingTime() + "ms (±" + getProcessingTimeStdDev() + "ms)");
         System.out.println("  Timeout: " + getTimeout() + "ms");
-        System.out.println("\nLAGER:");
-        System.out.println("  Initial-Bestand: " + getInitialStock());
+        System.out.println("\nSTOCK:");
+        System.out.println("  Initial stock: " + getInitialStock());
         System.out.println("==============================\n");
     }
 }

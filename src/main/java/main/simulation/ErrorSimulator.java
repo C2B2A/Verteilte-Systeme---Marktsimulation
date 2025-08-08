@@ -3,28 +3,28 @@ package main.simulation;
 import java.util.Random;
 
 /**
- * Simuliert technische und fachliche Fehler basierend auf Wahrscheinlichkeiten
- * Verwendet Normal-Verteilung für Zeiten
+ * Simulates technical and professional errors based on probabilities
+ * Uses normal distribution for times
  */
 public class ErrorSimulator {
     private static final Random random = new Random();
-    
-    // Technische Fehlertypen
+
+    // Technical error types
     public enum ErrorType {
-        SUCCESS,              // Alles OK
-        FAIL_NO_RESPONSE,    // Keine Antwort (Timeout)
-        FAIL_CRASH          // Crash nach Empfang
+        SUCCESS,              // Everything OK
+        FAIL_NO_RESPONSE,    // No response (Timeout)
+        FAIL_CRASH          // Crash after reception
     }
-    
-    // Fachliche Fehlertypen
+
+    // Professional error types
     public enum BusinessError {
-        NONE,                    // Kein Fehler
-        PRODUCT_UNAVAILABLE,     // Produkt "versehentlich" nicht verfügbar
-        UNKNOWN_PRODUCT         // Produkt-ID nicht bekannt (wird in SellerApp geprüft)
+        NONE,                    // No error
+        PRODUCT_UNAVAILABLE,     // Product "accidentally" unavailable
+        UNKNOWN_PRODUCT         // Product ID unknown (checked in SellerApp)
     }
     
     /**
-     * Entscheidet welcher TECHNISCHE Fehlertyp auftreten soll
+     * Determines which TECHNICAL error type should occur
      */
     public static ErrorType getNextError() {
         double rand = random.nextDouble();
@@ -41,13 +41,13 @@ public class ErrorSimulator {
     }
     
     /**
-     * Entscheidet ob ein FACHLICHER Fehler auftreten soll
-     * Wird nur aufgerufen wenn technisch alles OK ist
+     * Determines whether a BUSINESS error should occur
+     * Is only called if everything is technically OK
      */
     public static BusinessError getBusinessError() {
         double rand = random.nextDouble();
-        
-        // Prüfe ob Produkt "versehentlich" nicht verfügbar sein soll
+
+        // Check if product should be "accidentally" unavailable
         if (rand < ConfigLoader.getProductNotAvailableProbability()) {
             return BusinessError.PRODUCT_UNAVAILABLE;
         }
@@ -56,22 +56,22 @@ public class ErrorSimulator {
     }
     
     /**
-     * Simuliert Verarbeitungszeit (Normal-verteilt)
+     * Simulates processing time (Normal-distributed)
      */
     public static int getProcessingTime() {
         int average = ConfigLoader.getAverageProcessingTime();
         int stdDev = ConfigLoader.getProcessingTimeStdDev();
-        
-        // Normal-verteilte Zufallszahl
+
+        // Normally distributed random number
         double gaussian = random.nextGaussian();
         int processingTime = (int) (average + gaussian * stdDev);
-        
-        // Mindestens 100ms
+
+        // At least 100ms
         return Math.max(100, processingTime);
     }
     
     /**
-     * Hilfsmethode: Thread schlafen lassen für Verarbeitungssimulation
+     * Helper method: Put thread to sleep for processing simulation
      */
     public static void simulateProcessing() {
         try {
@@ -82,17 +82,17 @@ public class ErrorSimulator {
     }
     
     /**
-     * Debug: Fehlerstatistik ausgeben
+     * Debug: Display error statistics
      */
     public static void printErrorStatistics(int total) {
-        System.out.println("\n=== Fehlerstatistik (Erwartung bei " + total + " Anfragen) ===");
-        System.out.println("TECHNISCHE FEHLER:");
-        System.out.println("  Erfolg: " + (int)(total * ConfigLoader.getSuccessProbability()));
+        System.out.println("\n=== Error Statistics (Expectation for " + total + " Requests) ===");
+        System.out.println("TECHNICAL ERRORS:");
+        System.out.println("  Success: " + (int)(total * ConfigLoader.getSuccessProbability()));
         System.out.println("  Timeout: " + (int)(total * ConfigLoader.getFailWithoutResponseProbability()));
         System.out.println("  Crash: " + (int)(total * ConfigLoader.getFailWithCrashProbability()));
-        System.out.println("\nFACHLICHE FEHLER (bei erfolgreichen Anfragen):");
+        System.out.println("\nBUSINESS ERRORS (for successful requests):");
         int successfulRequests = (int)(total * ConfigLoader.getSuccessProbability());
-        System.out.println("  Produkt nicht verfügbar: " + 
+        System.out.println("  Product not available: " + 
                          (int)(successfulRequests * ConfigLoader.getProductNotAvailableProbability()));
         System.out.println("==================================================\n");
     }

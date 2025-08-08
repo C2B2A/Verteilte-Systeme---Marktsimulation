@@ -13,8 +13,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Customer-Komponente die Bestellungen an Marketplaces sendet
- * Verwendet PUSH Socket für Fire-and-Forget Messaging
+* Customer component that sends orders to marketplaces
+* Uses PUSH socket for fire-and-forget messaging
  */
 public class CustomerApp {
     private final String customerId;
@@ -25,10 +25,10 @@ public class CustomerApp {
     private final ZMQ.Socket dealerSocket;
     private boolean running = true;
     
-    // Marketplace Ports für PULL Sockets
+    // Marketplace Ports for PULL Sockets
     private static final int[] MARKETPLACE_PORTS = {5570, 5571}; // M1, M2
     
-    // Verfügbare Produkte im System
+    // Available products for random order generation
     private static final List<String> AVAILABLE_PRODUCTS = Arrays.asList(
         "PA", "PB", "PC", "PD", "PE", "PF", "PG", "PH", "PI", "PJ"
     );
@@ -36,15 +36,15 @@ public class CustomerApp {
     public CustomerApp(String customerId) {
         this.customerId = customerId;
         this.context = new ZContext();
-        this.scheduler = Executors.newScheduledThreadPool(2); // 1 für Orders, 1 für Responses
+        this.scheduler = Executors.newScheduledThreadPool(2); // 1 for Orders, 1 for Responses
         this.random = new Random();
         this.orderCounter = new AtomicInteger(0);
         
-        // Persistenter DEALER Socket wie OrderProcessor
+        // Persistent DEALER Socket like OrderProcessor
         this.dealerSocket = context.createSocket(SocketType.DEALER);
         this.dealerSocket.setIdentity(customerId.getBytes());
         
-        // Verbinde zu allen Marketplaces
+        // Connect to all marketplaces
         for (int port : MARKETPLACE_PORTS) {
             this.dealerSocket.connect("tcp://localhost:" + port);
         }
@@ -52,33 +52,33 @@ public class CustomerApp {
     
     public void start() {
         System.out.println("\n╔════════════════════════════════════════════╗");
-        System.out.println("║      CUSTOMER " + customerId + " GESTARTET                  ║");
+        System.out.println("║      CUSTOMER " + customerId + " STARTED                  ║");
         System.out.println("╠════════════════════════════════════════════╣");
-        System.out.println("║ Sendet Bestellungen an Marketplaces        ║");
+        System.out.println("║ Sends orders to Marketplaces               ║");
         System.out.println("║ Marketplace M1: Port 5570                  ║");
         System.out.println("║ Marketplace M2: Port 5571                  ║");
         System.out.println("╠════════════════════════════════════════════╣");
         
-        // Zeige Bestellmodus
+        // Shows Bestellmodus
         if (CustomerOrdersConfig.shouldGenerateOrders()) {
-            System.out.println("║ Modus: GENERIERTE Bestellungen             ║");
+            System.out.println("║ Mode: GENERATED orders                     ║");
         } else {
-            System.out.println("║ Modus: VORDEFINIERTE Bestellungen          ║");
-            System.out.println("║ Anzahl: " + String.format("%-35d", CustomerOrdersConfig.getPredefinedOrderCount()) + "║");
+            System.out.println("║ Mode: PREDEFINED orders                    ║");
+            System.out.println("║ Number: " + String.format("%-35d", CustomerOrdersConfig.getPredefinedOrderCount()) + "║");
         }
         
         System.out.println("╚════════════════════════════════════════════╝\n");
         
         ConfigLoader.printConfig();
         
-        // Starte Response-Empfänger (wie OrderProcessor)
+        // Start Response receiver (like OrderProcessor)
         scheduler.execute(this::receiveMarketplaceResponses);
         
-        // Scheduler startet periodisches Senden von Bestellungen
+        // Scheduler starts periodic sending of orders
         int orderDelay = ConfigLoader.getOrderDelay();
         scheduler.scheduleWithFixedDelay(
             this::sendOrder,
-            8000L, // Initial delay
+            8000L,
             orderDelay,
             TimeUnit.MILLISECONDS
         );
@@ -86,7 +86,7 @@ public class CustomerApp {
         // Shutdown-Hook
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
         
-        // Warte auf Beendigung
+        // Wait for completion
         while (running) {
             try {
                 Thread.sleep(1000);
@@ -103,28 +103,28 @@ public class CustomerApp {
             Messages.OrderRequest order;
             if (CustomerOrdersConfig.shouldGenerateOrders()) {
                 order = createRandomOrder(orderId);
-                System.out.println("\n[" + customerId + "] Generiere zufällige Bestellung");
+                System.out.println("\n[" + customerId + "] Generate random order");
             } else {
                 order = CustomerOrdersConfig.getNextPredefinedOrder(orderId, customerId);
-                System.out.println("\n[" + customerId + "] Verwende vordefinierte Bestellung");
+                System.out.println("\n[" + customerId + "] Use predefined order");
             }
-            // Immer Bestellinhalt anzeigen
+            // Always show order content
             System.out.println("========================================");
-            System.out.println("[" + customerId + "] Bestellung an Marketplace:");
+            System.out.println("[" + customerId + "] Order on Marketplace:");
             System.out.println("Order ID: " + order.orderId);
-            System.out.println("Produkte:");
+            System.out.println("Products:");
             for (Messages.OrderRequest.ProductOrder p : order.products) {
                 System.out.println("  - " + p.productId + " x " + p.quantity);
             }
             
-            // Sende asynchron über persistenten Socket (wie OrderProcessor)
+            // Send asynchronously via persistent socket (like OrderProcessor)
             String message = Messages.toJson(order);
-            // dealerSocket.sendMore("");  // Leerer Routing-Frame für Auto-Routing, nicht nötig
+            // dealerSocket.sendMore("");  // Empty routing frame for auto-routing, not necessary
             dealerSocket.send(message); // Message-Frame
-            System.out.println("[" + customerId + "] Bestellung gesendet!" );
+            System.out.println("[" + customerId + "] Order sent!" );
             System.out.println("======================================== \n");
         } catch (Exception e) {
-            System.err.println("[" + customerId + "] Fehler beim Senden: " + e.getMessage());
+            System.err.println("[" + customerId + "]  Error sending:" + e.getMessage());
         }
     }
     
@@ -134,12 +134,12 @@ public class CustomerApp {
         order.customerId = customerId;
         order.products = new ArrayList<>();
         
-        // 1-3 zufällige Produkte
+        // 1-3 random products
         int productCount = random.nextInt(3) + 1;
         Set<String> usedProducts = new HashSet<>();
         
         for (int i = 0; i < productCount; i++) {
-            // Wähle zufälliges Produkt (keine Duplikate)
+            // Choose random product (no duplicates)
             String productId;
             do {
                 productId = AVAILABLE_PRODUCTS.get(
@@ -147,15 +147,15 @@ public class CustomerApp {
             } while (usedProducts.contains(productId));
             usedProducts.add(productId);
             
-            // Zufällige Menge (1-3)
+            //Random set (1-3)
             int quantity = random.nextInt(3) + 1;
             
-            // Chance für doppelte Produktanforderung (fachlicher Fehler)
+            // Chance for duplicate product requirements (technical error)
             if (random.nextDouble() < ConfigLoader.getDuplicateProductProbability() && i > 0) {
-                // Nimm ein bereits verwendetes Produkt
+                // Take a product you have already used
                 String duplicateProduct = order.products.get(0).productId;
                 order.products.add(new Messages.OrderRequest.ProductOrder(duplicateProduct, quantity));
-                System.out.println(" \n Achtung: Im Folgenden - Doppelte Produktanforderung simuliert! ");
+                System.out.println(" \n Attention: In the following - duplicate product requirement simulated! ");
                 break;
             } else {
                 order.products.add(new Messages.OrderRequest.ProductOrder(productId, quantity));
@@ -166,25 +166,25 @@ public class CustomerApp {
     }
     
     /**
-     * Empfangs-Thread für Marketplace-Antworten (wie OrderProcessor)
+     * Receiving thread for Marketplace responses (like OrderProcessor)
      */
     private void receiveMarketplaceResponses() {
         while (running && !Thread.currentThread().isInterrupted()) {
             try {
                 String response = dealerSocket.recvStr();
                 if (response != null && !response.isEmpty()) {
-                    System.out.println("[" + customerId + "] Antwort vom Marketplace " + response);
+                    System.out.println("[" + customerId + "] Answer from Marketplace " + response);
                 }
             } catch (Exception e) {
                 if (running) {
-                    System.err.println("[" + customerId + "] Fehler beim Empfangen: " + e.getMessage());
+                    System.err.println("[" + customerId + "] Error receiving: " + e.getMessage());
                 }
             }
         }
     }
     
     public void shutdown() {
-        System.out.println("\n[" + customerId + "] Fahre herunter...");
+        System.out.println("\n[" + customerId + "] Shut down...");
         running = false;
         scheduler.shutdown();
         dealerSocket.close();
@@ -196,7 +196,7 @@ public class CustomerApp {
         } catch (InterruptedException e) {
             scheduler.shutdownNow();
         }
-        System.out.println("[" + customerId + "] Beendet.");
+        System.out.println("[" + customerId + "] Finished.");
     }
     
     public static void main(String[] args) {
@@ -216,12 +216,12 @@ public class CustomerApp {
             }
         }
         
-        // Lade Konfiguration
+        // Load configuration
         if (configFile != null) {
             ConfigLoader.loadConfig(configFile);
         }
         
-        // Starte Customer
+        // Start Customer
         CustomerApp app = new CustomerApp(customerId);
         app.start();
     }

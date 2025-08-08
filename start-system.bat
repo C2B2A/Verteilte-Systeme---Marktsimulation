@@ -3,13 +3,13 @@ echo ===================================
 echo SCB Marketplace System Start Script
 echo ===================================
 
-REM Pfad zur JAR
+REM Path to JAR
 set JAR=target\marktsimulation-1.0.0-jar-with-dependencies.jar
 
-REM Prüfe ob JAR existiert
+REM Check if JAR exists
 if not exist %JAR% (
-    echo FEHLER: JAR nicht gefunden!
-    echo Bitte erst 'build clean install' ausführen
+    echo ERROR: JAR not found!
+    echo Please run 'build clean install' first
     pause
     exit /b 1
 )
@@ -38,10 +38,10 @@ echo Warte 3 Sekunden auf Seller-Start...
 timeout /t 3 /nobreak > nul
 
 echo.
-echo Starte 2 Marketplaces...
+echo Start 2 Marketplaces...
 echo.
 
-REM Starte Marketplace 1-2
+REM Start Marketplace 1-2
 start "Marketplace M1" cmd /k java -jar %JAR% --mode=marketplace --id=M1
 timeout /t 1 /nobreak > nul
 
@@ -52,30 +52,30 @@ echo Warte 2 Sekunden auf Marketplace-Start...
 timeout /t 2 /nobreak > nul
 
 echo.
-echo Starte Customer...
+echo Start a Customer...
 echo.
 
-REM Starte einen Customer
+REM Start a Customer
 start "Customer C1" cmd /k java -jar %JAR% --mode=customer --id=C1
 
 echo.
 echo ===================================
-echo System komplett gestartet!
+echo System completely started!
 echo.
-echo Architektur:
+echo Architecture:
 echo   1 Customer (C1)
 echo   2 Marketplaces (M1:5570, M2:5571)
 echo   5 Seller (S1-S5 auf Ports 5556-5560)
 echo.
-echo Produktverteilung:
+echo Product Distribution:
 echo   S1: PA, PB
 echo   S2: PC, PD
 echo   S3: PC, PE
 echo   S4: PD, PE
 echo   S5: PF, PB
 echo.
-echo Zum Beenden alle Fenster schließen
-echo oder Ctrl+C in den Fenstern
+echo To exit, close all windows
+echo or press Ctrl+C in the windows
 echo ===================================
 echo.
 pause

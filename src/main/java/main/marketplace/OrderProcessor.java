@@ -12,8 +12,8 @@ import java.util.concurrent.*;
 import java.util.function.BiConsumer;
 
 /**
- * Verarbeitet Bestellungen und kommuniziert mit Sellern
- * Unterstützt Failover wenn ein Produkt bei mehreren Sellern verfügbar ist
+ * Processes orders and communicates with sellers
+ * Supports failover when a product is available from multiple sellers
  */
 public class OrderProcessor {
     private final String marketplaceId;
@@ -21,11 +21,11 @@ public class OrderProcessor {
     private final ZContext context;
     private final ExecutorService executor;
     private final Map<String, Integer> sellerPorts;
-    private final Map<String, ZMQ.Socket> sellerSockets; // Ein Socket pro Seller
-    private final ZMQ.Socket dealerSocket; // Für direkte Kommunikation
-    private final int networkLatencyMs = 50; // Simulierte Latenz (konfigurierbar)
-    
-    // Seller-Port-Konfiguration
+    private final Map<String, ZMQ.Socket> sellerSockets; // One socket per seller
+    private final ZMQ.Socket dealerSocket; // For direct communication
+    private final int networkLatencyMs = 50; // Simulated latency (configurable)
+
+    // Seller port configuration
     private static final Map<String, Integer> DEFAULT_SELLERS = Map.of(
         "S1", 5556,
         "S2", 5557,
@@ -33,8 +33,8 @@ public class OrderProcessor {
         "S4", 5559,
         "S5", 5560
     );
-    
-    // Produkt-zu-Seller Mapping (korrekte Verteilung)
+
+    // Product-to-seller mapping (correct distribution)
     private static final Map<String, List<String>> PRODUCT_SELLER_MAP = Map.of(
         "PA", Arrays.asList("S1"),
         "PB", Arrays.asList("S1"),
@@ -66,94 +66,94 @@ public class OrderProcessor {
         this.sellerSockets = new HashMap<>();
         this.dealerSocket = context.createSocket(SocketType.DEALER);
         this.dealerSocket.setIdentity(marketplaceId.getBytes(ZMQ.CHARSET));
-        
-        // Erstelle einen DEALER Socket für jeden Seller
+
+        // Create a DEALER socket for each seller
         for (Map.Entry<String, Integer> entry : DEFAULT_SELLERS.entrySet()) {
             String sellerId = entry.getKey();
             int port = entry.getValue();
             
             ZMQ.Socket socket = context.createSocket(SocketType.DEALER);
-            // Setze die Identität für den Socket!
-            socket.setIdentity(marketplaceId.getBytes(ZMQ.CHARSET)); // z.B. "Marketplace-1"
+            // Set identity for the socket
+            socket.setIdentity(marketplaceId.getBytes(ZMQ.CHARSET)); // e.g. "Marketplace-1"
             socket.connect("tcp://localhost:" + port);
             sellerSockets.put(sellerId, socket);
         }
-        
-        // Starte Empfangs-Thread für jeden Seller
+
+        // Start receiving thread for each seller
         for (Map.Entry<String, ZMQ.Socket> entry : sellerSockets.entrySet()) {
             String sellerId = entry.getKey();
             ZMQ.Socket socket = entry.getValue();
             executor.submit(() -> receiveSellerResponses(sellerId, socket));
         }
 
-        // Starte periodische Überprüfung für SAGA-Timeouts
+        // Start periodic check for SAGA timeouts
         scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(this::cleanupTimedOutSagas, sagaTimeoutMs, sagaTimeoutMs, TimeUnit.MILLISECONDS);
     }
     
     /**
-     * Verarbeitet eine neue Bestellung
+     * Processes a new order
      */
     public void processOrder(Messages.OrderRequest order) {
-        System.out.println("[OrderProcessor] Neue Bestellung: " + order.orderId);
-        
-        // Starte SAGA
+        System.out.println("[OrderProcessor] New order: " + order.orderId);
+
+        // Start SAGA
         SagaManager.OrderSaga saga = sagaManager.startSaga(order);
-        
-        // Sende parallele Reservierungsanfragen
+
+        // Send parallel reservation requests
         for (Messages.OrderRequest.ProductOrder productOrder : order.products) {
-            // Registriere ausstehende Reservierung
+            // Register pending reservation
             sagaManager.registerPendingReservation(order.orderId, productOrder.productId);
-            
-            // Starte Reservierungsversuch
+
+            // Start reservation attempt
             executor.submit(() -> tryReserveProduct(
                 order.orderId, 
                 productOrder.productId, 
                 productOrder.quantity
             ));
         }
-        
-        // Starte Überwachung für diese Bestellung
+
+        // Start monitoring for this order
         executor.submit(() -> monitorOrder(saga));
     }
     
     /**
-     * Versucht ein Produkt zu reservieren, mit Failover zu alternativen Sellern
+     * Attempts to reserve a product, with failover to alternative sellers
      */
     private void tryReserveProduct(String orderId, String productId, int quantity) {
         List<String> possibleSellers = PRODUCT_SELLER_MAP.getOrDefault(productId, new ArrayList<>());
         
         if (possibleSellers.isEmpty()) {
-            System.err.println("[OrderProcessor] Kein Seller für Produkt " + productId);
+            System.err.println("[OrderProcessor] No seller for product " + productId);
             sagaManager.handleReservationTimeout(orderId, productId);
             return;
         }
         
-        // Versuche alle möglichen Seller
+        // Try all possible sellers
         for (String sellerId : possibleSellers) {
-            System.out.println("[OrderProcessor] Versuche Seller " + sellerId + 
-                             " für Produkt " + productId);
+            System.out.println("[OrderProcessor] Try Seller " + sellerId + 
+                             " for product " + productId);
             
             boolean success = sendReservationRequest(orderId, productId, quantity, sellerId);
             
             if (success) {
-                // Erfolgreich reserviert oder endgültig fehlgeschlagen
+                // Successfully reserved or definitively failed
                 return;
             }
-            
-            // Bei Timeout oder temporärem Fehler: Nächsten Seller versuchen
+
+            // On timeout or temporary error: try next seller
             System.out.println("[OrderProcessor] Seller " + sellerId + 
-                             " nicht verfügbar, versuche Alternative...");
+                             " not available, trying alternative...");
         }
-        
-        // Alle Seller versucht, keiner konnte liefern
-        System.err.println("[OrderProcessor] Kein Seller konnte " + productId + " liefern");
+
+        // All sellers tried, none could deliver
+        System.err.println("[OrderProcessor] No seller could deliver " + productId);
         sagaManager.handleReservationTimeout(orderId, productId);
     }
     
     /**
-     * Sendet Reservierungsanfrage an einen spezifischen Seller
-     * @return true wenn erfolgreich reserviert oder endgültig fehlgeschlagen
+     * Sends a reservation request to a specific seller
+     * @return true if successfully reserved or definitively failed
      */
     private boolean sendReservationRequest(String orderId, String productId, int quantity, String sellerId) {
         try {
@@ -166,38 +166,38 @@ public class OrderProcessor {
             request.marketplaceId = marketplaceId;
             
             String json = Messages.toJson(request);
-            System.out.println("[OrderProcessor] Sende an " + sellerId + ": " + json);
-            
-            // Hole den richtigen Socket für diesen Seller
+            System.out.println("[OrderProcessor] Sending to " + sellerId + ": " + json);
+
+            // Get the correct socket for this seller
             ZMQ.Socket sellerSocket = sellerSockets.get(sellerId);
             if (sellerSocket == null) {
-                System.err.println("[OrderProcessor] Kein Socket für Seller " + sellerId);
+                System.err.println("[OrderProcessor] No socket for seller " + sellerId);
                 return false;
             }
-            
-            // Sende direkt über den dedizierten Socket
+
+            // Send directly via the dedicated socket
             sellerSocket.send(json);
             return true;
             
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ZMQException e) {
-            System.err.println("[OrderProcessor] ZMQ Fehler bei " + sellerId + ": " + e.getMessage());
+            System.err.println("[OrderProcessor] ZMQ error at " + sellerId + ": " + e.getMessage());
             return false;
         }
         return false;
     }
     
     /**
-     * Empfangs-Thread für einen spezifischen Seller
+     * Reception thread for a specific seller
      */
     private void receiveSellerResponses(String sellerId, ZMQ.Socket socket) {
         while (!Thread.currentThread().isInterrupted()) {
             try {
                 String response = socket.recvStr(0);
                 if (response != null && !response.isEmpty()) {
-                    System.out.println("[OrderProcessor] Antwort von " + sellerId + ": " + response);
-                    
+                    System.out.println("[OrderProcessor] Answer from " + sellerId + ": " + response);
+
                     String type = Messages.getMessageType(response);
                     switch (type) {
                         case "ReserveResponse":
@@ -205,30 +205,30 @@ public class OrderProcessor {
                             sagaManager.handleReservationResponse(reserveResponse);
                             break;
                         case "CancelResponse":
-                            // Kann optional verarbeitet werden
+                            // Can be processed optionally
                             break;
                         case "ConfirmResponse":
-                            // Kann optional verarbeitet werden
+                            // Can be processed optionally
                             break;
                         default:
-                            System.err.println("[OrderProcessor] Unbekannter Nachrichtentyp: " + type);
+                            System.err.println("[OrderProcessor] Unknown message type: " + type);
                             break;
                     }
                 }
             } catch (Exception e) {
                 if (!Thread.currentThread().isInterrupted()) {
-                    System.err.println("[OrderProcessor] Fehler beim Empfang von " + sellerId + ": " + e.getMessage());
+                    System.err.println("[OrderProcessor] Error receiving from " + sellerId + ": " + e.getMessage());
                 }
             }
         }
     }
     
     /**
-     * Überwacht eine Bestellung und führt ggf. Rollback aus
+     * Monitors an order and performs rollback if necessary
      */
     private void monitorOrder(SagaManager.OrderSaga saga) {
-        // Warte bis alle Reservierungen abgeschlossen sind
-        int maxWaitTime = ConfigLoader.getTimeout() * 3; // Mehr Zeit für Failover
+        // Wait until all reservations are complete
+        int maxWaitTime = ConfigLoader.getTimeout() * 3; // More time for failover
         long startTime = System.currentTimeMillis();
         
         while (!saga.isComplete() && 
@@ -240,23 +240,23 @@ public class OrderProcessor {
                 return;
             }
         }
-        
-        // Prüfe Status
+
+        // Check status
         if (saga.status == SagaManager.SagaStatus.RESERVED) {
-            // Alle erfolgreich - sende Bestätigungen
+            // All successful - send confirmations
             confirmOrder(saga);
         } else if (saga.status == SagaManager.SagaStatus.COMPENSATING || 
                    saga.hasFailures()) {
-            // Fehler aufgetreten - Rollback
+            // Error occurred - rollback
             rollbackOrder(saga);
         }
     }
     
     /**
-     * Bestätigt eine erfolgreiche Bestellung
+     * Confirms a successful order
      */
     private void confirmOrder(SagaManager.OrderSaga saga) {
-        System.out.println("\n[OrderProcessor] Bestätige Order " + saga.orderId);
+        System.out.println("\n[OrderProcessor] Confirming order " + saga.orderId);
 
         for (Messages.ReserveResponse reservation : saga.getSuccessfulReservations()) {
             executor.submit(() -> {
@@ -266,26 +266,26 @@ public class OrderProcessor {
                 confirm.sellerId = reservation.sellerId;
                 sendConfirmation(confirm, reservation.sellerId);
             });
-            // Entferne die Reservierung nach Bestätigung
+            // Remove reservation after confirmation
             saga.reservations.remove(reservation.productId);
         }
 
         sagaManager.completeSaga(saga.orderId, true);
-        System.out.println("[OrderProcessor] Order " + saga.orderId + " erfolgreich abgeschlossen!");
+        System.out.println("[OrderProcessor] Order " + saga.orderId + " successfully completed!");
 
-        // Nach Abschluss der Bestellung:
+        // After completing the order:
         if (statusCallback != null) {
-            // Rückantwort enthält jetzt auch die marketplaceId
-            statusCallback.accept(saga.orderId, marketplaceId + ": Bestellung " + saga.orderId + " erfolgreich abgeschlossen");
+            // Response now also includes the marketplaceId
+            statusCallback.accept(saga.orderId, marketplaceId + ": Order " + saga.orderId + " successfully completed");
         }
     }
     
     /**
-     * Führt Rollback für fehlgeschlagene Bestellung aus
+     * Performs rollback for failed order
      */
     private void rollbackOrder(SagaManager.OrderSaga saga) {
-        System.out.println("\n[OrderProcessor] Rollback für Order " + saga.orderId);
-        
+        System.out.println("\n[OrderProcessor] Rolling back order " + saga.orderId);
+
         List<Messages.ReserveResponse> toRollback = sagaManager.getReservationsForRollback(saga.orderId);
         CountDownLatch latch = new CountDownLatch(toRollback.size());
         
@@ -303,8 +303,8 @@ public class OrderProcessor {
                 }
             });
         }
-        
-        // Warte auf alle Rollbacks
+
+        // Wait for all rollbacks
         try {
             latch.await(ConfigLoader.getTimeout(), TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
@@ -313,24 +313,24 @@ public class OrderProcessor {
         
         sagaManager.completeSaga(saga.orderId, false);
         System.out.println("[OrderProcessor] Order " + saga.orderId + 
-                         " wurde zurückgerollt!");
+                         " rolled back!");
 
-        // Nach Abschluss der Bestellung:
+        // After completing the order:
         if (statusCallback != null) {
-            statusCallback.accept(saga.orderId, marketplaceId + ": Bestellung " + saga.orderId + " fehlgeschlagen (Rollback durchgeführt)");
+            statusCallback.accept(saga.orderId, marketplaceId + ": Order " + saga.orderId + " failed (rollback performed)");
         }
     }
     
     /**
-     * Sendet Bestätigung an Seller
+     * Sends confirmation to seller
      */
     private void sendConfirmation(Messages.ConfirmRequest confirm, String sellerId) {
         try {
             Thread.sleep(networkLatencyMs);
             
             String json = Messages.toJson(confirm);
-            System.out.println("[OrderProcessor] Sende Bestätigung an " + sellerId + ": " + json);
-            
+            System.out.println("[OrderProcessor] Sending confirmation to " + sellerId + ": " + json);
+
             ZMQ.Socket sellerSocket = sellerSockets.get(sellerId);
             if (sellerSocket != null) {
                 sellerSocket.send(json);
@@ -338,20 +338,20 @@ public class OrderProcessor {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ZMQException e) {
-            System.err.println("[OrderProcessor] Fehler bei Bestätigung: " + e.getMessage());
+            System.err.println("[OrderProcessor] Error sending confirmation: " + e.getMessage());
         }
     }
     
     /**
-     * Sendet Stornierung an Seller
+     * Sends cancellation to seller
      */
     private void sendCancellation(Messages.CancelRequest cancel, String sellerId) {
         try {
             Thread.sleep(networkLatencyMs);
             
             String json = Messages.toJson(cancel);
-            System.out.println("[OrderProcessor] Sende Stornierung an " + sellerId + ": " + json);
-            
+            System.out.println("[OrderProcessor] Sending cancellation to " + sellerId + ": " + json);
+
             ZMQ.Socket sellerSocket = sellerSockets.get(sellerId);
             if (sellerSocket != null) {
                 sellerSocket.send(json);
@@ -359,19 +359,19 @@ public class OrderProcessor {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         } catch (ZMQException e) {
-            System.err.println("[OrderProcessor] Fehler beim Rollback: " + e.getMessage());
+            System.err.println("[OrderProcessor] Error sending cancellation: " + e.getMessage());
         }
     }
     
     /**
-     * Entfernt SAGAs, die zu lange aktiv sind und führt Rollback beim Seller durch
+     * Removes SAGAs that have been active too long and performs rollback on the seller
      */
     private void cleanupTimedOutSagas() {
         List<SagaManager.OrderSaga> timedOutSagas = sagaManager.getTimedOutSagas(sagaTimeoutMs);
         for (SagaManager.OrderSaga saga : timedOutSagas) {
-            System.out.println("[OrderProcessor] Entferne Order " + saga.orderId + " wegen Timeout.");
+            System.out.println("[OrderProcessor] Removing Order " + saga.orderId + " due to timeout.");
 
-            // Rollback für alle erfolgreichen Reservierungen
+            // Rollback for all successful reservations
             List<Messages.ReserveResponse> toRollback = sagaManager.getReservationsForRollback(saga.orderId);
             CountDownLatch latch = new CountDownLatch(toRollback.size());
             for (Messages.ReserveResponse reservation : toRollback) {
@@ -395,7 +395,7 @@ public class OrderProcessor {
 
             sagaManager.removeSaga(saga.orderId);
             if (statusCallback != null) {
-                statusCallback.accept(saga.orderId, "Bestellung " + saga.orderId + " entfernt wegen Timeout (Rollback durchgeführt)");
+                statusCallback.accept(saga.orderId, "Order " + saga.orderId + " removed due to timeout (Rollback performed)");
             }
         }
     }
@@ -406,8 +406,8 @@ public class OrderProcessor {
     public void shutdown() {
         executor.shutdown();
         scheduler.shutdown(); // Stop periodic cleanup
-        
-        // Schließe alle Seller-Sockets
+
+        // Close all seller sockets
         for (ZMQ.Socket socket : sellerSockets.values()) {
             socket.close();
         }
