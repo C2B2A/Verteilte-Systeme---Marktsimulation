@@ -30,6 +30,9 @@ public class MarketplaceApp {
         "M2", 5571
     );
     
+    private final Map<String, byte[]> orderCustomerMap = new HashMap<>(); // Order-ID -> Customer-Identity
+    private ZMQ.Socket receiver; // Für Statusnachrichten an Customer
+    
     public MarketplaceApp(String marketplaceId) {
         this.marketplaceId = marketplaceId;
         this.port = MARKETPLACE_PORTS.getOrDefault(marketplaceId, 5570);
@@ -51,9 +54,9 @@ public class MarketplaceApp {
         System.out.println("║ Produktverteilung:                         ║");
         System.out.println("║ Seller S1: PA (Produkt A), PB (Produkt B) ║");
         System.out.println("║ Seller S2: PC (Produkt C), PD (Produkt D) ║");
-        System.out.println("║ Seller S3: PC (Produkt C), PE (Produkt E) ║");
-        System.out.println("║ Seller S4: PD (Produkt D), PE (Produkt E) ║");
-        System.out.println("║ Seller S5: PF (Produkt F), PB (Produkt B) ║");
+        System.out.println("║ Seller S3: PE (Produkt E), PF (Produkt F) ║");
+        System.out.println("║ Seller S4: PG (Produkt G), PH (Produkt H) ║");
+        System.out.println("║ Seller S5: PI (Produkt I), PJ (Produkt J) ║");
         System.out.println("╚════════════════════════════════════════════╝\n");
         
         ConfigLoader.printConfig();
@@ -87,17 +90,20 @@ public class MarketplaceApp {
      * Empfängt Bestellungen von Customers via ROUTER Socket
      */
     private void receiveOrders() {
-        ZMQ.Socket receiver = context.createSocket(SocketType.ROUTER);
+        receiver = context.createSocket(SocketType.ROUTER);
         receiver.bind("tcp://127.0.0.1:" + port);
-        
+
         System.out.println("[" + marketplaceId + "] Warte auf Customer-Bestellungen auf Port " + port);
-        
+
+        // Callback für Statusnachrichten an OrderProcessor übergeben
+        orderProcessor.setStatusCallback(this::sendOrderStatusToCustomer);
+
         while (running) {
             try {
                 // ROUTER: Empfange Customer-ID und Nachricht
                 byte[] customerIdentity = receiver.recv(0);
                 String message = receiver.recvStr(0);
-                
+
                 if (message != null && !message.isEmpty()) {
                     Messages.OrderRequest order = Messages.fromJson(message, Messages.OrderRequest.class);
                     if (order != null) {
@@ -113,12 +119,15 @@ public class MarketplaceApp {
                         }
                         System.out.println("========================================");
                         
+                        // Customer-Identity für spätere Statusnachricht speichern
+                        orderCustomerMap.put(order.orderId, customerIdentity);
+                        
                         // Verarbeite Bestellung
                         orderProcessor.processOrder(order);
                         
                         // Sende Bestätigung zurück an Customer
                         receiver.sendMore(customerIdentity);
-                        receiver.send("Bestellung " + order.orderId + " empfangen und wird verarbeitet");
+                        receiver.send(marketplaceId + ": Bestellung " + order.orderId + " empfangen und wird verarbeitet");
                         System.out.println("[" + marketplaceId + "] Bestätigung an " + order.customerId + " gesendet");
                     } else {
                         // Fehlerhafte Nachricht
@@ -134,10 +143,23 @@ public class MarketplaceApp {
                 System.err.println("[" + marketplaceId + "] Fehler beim Empfangen: " + e.getMessage());
             }
         }
-        
+
         receiver.close();
     }
     
+    /**
+     * Sendet Statusnachricht an Customer nach Abschluss der Bestellung
+     */
+    public void sendOrderStatusToCustomer(String orderId, String statusMessage) {
+        byte[] customerIdentity = orderCustomerMap.get(orderId);
+        if (customerIdentity != null && receiver != null) {
+            receiver.sendMore(customerIdentity);
+            receiver.send(statusMessage);
+            System.out.println("[" + marketplaceId + "] Status für Order " + orderId + " an Customer gesendet: " + statusMessage);
+            orderCustomerMap.remove(orderId); // Nach Versand entfernen
+        }
+    }
+
     /**
      * Findet alle Seller die ein bestimmtes Produkt haben
      */

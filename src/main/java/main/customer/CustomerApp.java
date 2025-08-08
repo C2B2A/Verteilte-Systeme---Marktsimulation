@@ -173,7 +173,7 @@ public class CustomerApp {
             try {
                 String response = dealerSocket.recvStr();
                 if (response != null && !response.isEmpty()) {
-                    System.out.println("[" + customerId + "] Antwort vom Marketplace: " + response);
+                    System.out.println("[" + customerId + "] Antwort vom Marketplace " + response);
                 }
             } catch (Exception e) {
                 if (running) {

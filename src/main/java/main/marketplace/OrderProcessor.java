@@ -9,6 +9,7 @@ import org.zeromq.ZMQException;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.BiConsumer;
 
 /**
  * Verarbeitet Bestellungen und kommuniziert mit Sellern
@@ -36,10 +37,10 @@ public class OrderProcessor {
     // Produkt-zu-Seller Mapping (korrekte Verteilung)
     private static final Map<String, List<String>> PRODUCT_SELLER_MAP = Map.of(
         "PA", Arrays.asList("S1"),
-        "PB", Arrays.asList("S1"),  // B bei S1 und S5!
-        "PC", Arrays.asList("S2"),  // C bei S2 und S3!
-        "PD", Arrays.asList("S2"),  // D bei S2 und S4!
-        "PE", Arrays.asList("S3"),  // E bei S3 und S4!
+        "PB", Arrays.asList("S1"),
+        "PC", Arrays.asList("S2"),  
+        "PD", Arrays.asList("S2"),  
+        "PE", Arrays.asList("S3"),  
         "PF", Arrays.asList("S3"),
         "PG", Arrays.asList("S4"),
         "PH", Arrays.asList("S4"),
@@ -47,6 +48,15 @@ public class OrderProcessor {
         "PJ", Arrays.asList("S5")
     );
     
+    private BiConsumer<String, String> statusCallback; // orderId, statusMessage
+
+    public void setStatusCallback(BiConsumer<String, String> callback) {
+        this.statusCallback = callback;
+    }
+
+    private final ScheduledExecutorService scheduler; // For periodic SAGA cleanup
+    private final long sagaTimeoutMs = ConfigLoader.getTimeout() * 4; // Timeout for active SAGAs
+
     public OrderProcessor(String marketplaceId, SagaManager sagaManager) {
         this.marketplaceId = marketplaceId;
         this.sagaManager = sagaManager;
@@ -75,6 +85,10 @@ public class OrderProcessor {
             ZMQ.Socket socket = entry.getValue();
             executor.submit(() -> receiveSellerResponses(sellerId, socket));
         }
+
+        // Starte periodische Überprüfung für SAGA-Timeouts
+        scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(this::cleanupTimedOutSagas, sagaTimeoutMs, sagaTimeoutMs, TimeUnit.MILLISECONDS);
     }
     
     /**
@@ -243,21 +257,27 @@ public class OrderProcessor {
      */
     private void confirmOrder(SagaManager.OrderSaga saga) {
         System.out.println("\n[OrderProcessor] Bestätige Order " + saga.orderId);
-        
+
         for (Messages.ReserveResponse reservation : saga.getSuccessfulReservations()) {
             executor.submit(() -> {
                 Messages.ConfirmRequest confirm = new Messages.ConfirmRequest();
                 confirm.orderId = saga.orderId;
                 confirm.productId = reservation.productId;
                 confirm.sellerId = reservation.sellerId;
-                
                 sendConfirmation(confirm, reservation.sellerId);
             });
+            // Entferne die Reservierung nach Bestätigung
+            saga.reservations.remove(reservation.productId);
         }
-        
+
         sagaManager.completeSaga(saga.orderId, true);
-        System.out.println("[OrderProcessor] Order " + saga.orderId + 
-                         " erfolgreich abgeschlossen!");
+        System.out.println("[OrderProcessor] Order " + saga.orderId + " erfolgreich abgeschlossen!");
+
+        // Nach Abschluss der Bestellung:
+        if (statusCallback != null) {
+            // Rückantwort enthält jetzt auch die marketplaceId
+            statusCallback.accept(saga.orderId, marketplaceId + ": Bestellung " + saga.orderId + " erfolgreich abgeschlossen");
+        }
     }
     
     /**
@@ -294,6 +314,11 @@ public class OrderProcessor {
         sagaManager.completeSaga(saga.orderId, false);
         System.out.println("[OrderProcessor] Order " + saga.orderId + 
                          " wurde zurückgerollt!");
+
+        // Nach Abschluss der Bestellung:
+        if (statusCallback != null) {
+            statusCallback.accept(saga.orderId, marketplaceId + ": Bestellung " + saga.orderId + " fehlgeschlagen (Rollback durchgeführt)");
+        }
     }
     
     /**
@@ -339,10 +364,48 @@ public class OrderProcessor {
     }
     
     /**
+     * Entfernt SAGAs, die zu lange aktiv sind und führt Rollback beim Seller durch
+     */
+    private void cleanupTimedOutSagas() {
+        List<SagaManager.OrderSaga> timedOutSagas = sagaManager.getTimedOutSagas(sagaTimeoutMs);
+        for (SagaManager.OrderSaga saga : timedOutSagas) {
+            System.out.println("[OrderProcessor] Entferne Order " + saga.orderId + " wegen Timeout.");
+
+            // Rollback für alle erfolgreichen Reservierungen
+            List<Messages.ReserveResponse> toRollback = sagaManager.getReservationsForRollback(saga.orderId);
+            CountDownLatch latch = new CountDownLatch(toRollback.size());
+            for (Messages.ReserveResponse reservation : toRollback) {
+                executor.submit(() -> {
+                    try {
+                        Messages.CancelRequest cancel = new Messages.CancelRequest();
+                        cancel.orderId = saga.orderId;
+                        cancel.productId = reservation.productId;
+                        cancel.sellerId = reservation.sellerId;
+                        sendCancellation(cancel, reservation.sellerId);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+            try {
+                latch.await(ConfigLoader.getTimeout(), TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            sagaManager.removeSaga(saga.orderId);
+            if (statusCallback != null) {
+                statusCallback.accept(saga.orderId, "Bestellung " + saga.orderId + " entfernt wegen Timeout (Rollback durchgeführt)");
+            }
+        }
+    }
+
+    /**
      * Cleanup
      */
     public void shutdown() {
         executor.shutdown();
+        scheduler.shutdown(); // Stop periodic cleanup
         
         // Schließe alle Seller-Sockets
         for (ZMQ.Socket socket : sellerSockets.values()) {

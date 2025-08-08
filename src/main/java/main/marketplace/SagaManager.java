@@ -29,16 +29,16 @@ public class SagaManager {
         public final Map<String, Messages.ReserveResponse> reservations;
         public final Set<String> pendingReservations;
         public final Set<String> failedReservations;
-        public long startTime;
+        public final long startTimeMs; // Zeitstempel für Timeout
         
-        public OrderSaga(String orderId, Messages.OrderRequest order) {
-            this.orderId = orderId;
+        public OrderSaga(Messages.OrderRequest order) {
+            this.orderId = order.orderId;
             this.order = order;
             this.status = SagaStatus.STARTED;
             this.reservations = new ConcurrentHashMap<>();
             this.pendingReservations = ConcurrentHashMap.newKeySet();
             this.failedReservations = ConcurrentHashMap.newKeySet();
-            this.startTime = System.currentTimeMillis();
+            this.startTimeMs = System.currentTimeMillis();
         }
         
         public boolean isComplete() {
@@ -67,11 +67,10 @@ public class SagaManager {
      * Startet eine neue SAGA für eine Bestellung
      */
     public OrderSaga startSaga(Messages.OrderRequest order) {
-        String orderId = order.orderId;
-        OrderSaga saga = new OrderSaga(orderId, order);
-        activeSagas.put(orderId, saga);
+        OrderSaga saga = new OrderSaga(order);
+        activeSagas.put(order.orderId, saga);
         
-        System.out.println("[SAGA] Gestartet für Order " + orderId + 
+        System.out.println("[SAGA] Gestartet für Order " + order.orderId + 
                          " mit " + order.products.size() + " Produkten");
         return saga;
     }
@@ -168,7 +167,7 @@ public class SagaManager {
         OrderSaga saga = activeSagas.get(orderId);
         if (saga != null) {
             saga.status = success ? SagaStatus.COMPLETED : SagaStatus.FAILED;
-            long duration = System.currentTimeMillis() - saga.startTime;
+            long duration = System.currentTimeMillis() - saga.startTimeMs;
             
             System.out.println("[SAGA] Order " + orderId + " abgeschlossen: " + 
                              saga.status + " (Dauer: " + duration + "ms)");
@@ -196,5 +195,26 @@ public class SagaManager {
                              ", Failed: " + saga.failedReservations.size() + ")");
         }
         System.out.println("====================\n");
+    }
+    
+    /**
+     * Gibt alle SAGAs zurück, die den Timeout überschreiten
+     */
+    public List<OrderSaga> getTimedOutSagas(long timeoutMs) {
+        long now = System.currentTimeMillis();
+        List<OrderSaga> result = new ArrayList<>();
+        for (OrderSaga saga : activeSagas.values()) {
+            if (!saga.isComplete() && (now - saga.startTimeMs) > timeoutMs) {
+                result.add(saga);
+            }
+        }
+        return result;
+    }
+    
+    /**
+     * Entfernt eine SAGA aus den aktiven SAGAs
+     */
+    public void removeSaga(String orderId) {
+        activeSagas.remove(orderId);
     }
 }

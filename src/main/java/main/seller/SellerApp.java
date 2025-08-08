@@ -10,8 +10,7 @@ import org.zeromq.ZMQ;
 import java.util.Map;
 
 /**
- * Seller mit korrekter Produktverteilung laut Anforderung
- * S1: A,B | S2: C,D | S3: C,E | S4: D,E | S5: F,B
+ * Seller mit korrekter Produktverteilung
  */
 public class SellerApp {
     private final String sellerId;
