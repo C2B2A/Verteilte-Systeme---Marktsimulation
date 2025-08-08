@@ -42,7 +42,7 @@ public class ConfigLoader {
             loaded = true;
             System.out.println("Konfiguration geladen aus: " + filename);
             // Debug-Ausgabe der geladenen Properties
-            System.out.println("Loaded properties: " + properties);
+            // System.out.println("Loaded properties: " + properties);
         } catch (IOException e) {
             System.err.println("Konnte Config nicht laden: " + filename);
             System.err.println("Fehler: " + e.getMessage());
@@ -60,7 +60,7 @@ public class ConfigLoader {
                 properties.load(input);
                 loaded = true;
                 System.out.println("Konfiguration automatisch aus config/config.properties geladen.");
-                System.out.println("Loaded properties: " + properties);
+                //System.out.println("Loaded properties: " + properties);
             } catch (IOException e) {
                 System.out.println("Keine config/config.properties gefunden, verwende Standard-Werte");
                 properties = new Properties(defaults);
