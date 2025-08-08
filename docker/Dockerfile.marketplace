@@ -3,15 +3,15 @@ FROM openjdk:17-jre-slim
 
 WORKDIR /app
 
-# Kopiere die korrekte JAR
+# Copy the correct JAR
 COPY target/marktsimulation-1.0.0-jar-with-dependencies.jar app.jar
 COPY config/config.properties config/
 
 # Marketplace Ports
 EXPOSE 5570 5571
 
-# Environment Variable für ID
+# Environment Variable for ID
 ENV MARKETPLACE_ID=M1
 
-# Starte mit mode und id parameter
+# Start with mode and id parameter
 ENTRYPOINT ["sh", "-c", "java -jar app.jar --mode=marketplace --id=${MARKETPLACE_ID}"]

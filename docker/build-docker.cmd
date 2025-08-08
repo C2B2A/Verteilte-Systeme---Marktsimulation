@@ -1,23 +1,23 @@
 @echo off
-REM Docker Build Script für das Marketplace System
+REM Docker Build Script for the Marketplace System
 
 echo =========================================
-echo Docker Build für SCB Marketplace System
+echo Docker Build for SCB Marketplace System
 echo =========================================
 
-REM Prüfe ob Docker läuft
+REM Check if Docker is running
 docker info >nul 2>&1
 if errorlevel 1 (
-    echo FEHLER: Docker läuft nicht!
-    echo Bitte starte Docker Desktop und versuche es erneut.
+    echo ERROR: Docker is not running!
+    echo Please start Docker Desktop and try again.
     pause
     exit /b 1
 )
 
 REM Prüfe ob JAR existiert
 if not exist "target\marktsimulation-1.0.0-jar-with-dependencies.jar" (
-    echo FEHLER: JAR nicht gefunden!
-    echo Führe erst 'build clean install' aus
+    echo ERROR: JAR not found!
+    echo Please build the JAR file first.
     pause
     exit /b 1
 )
@@ -26,7 +26,7 @@ REM Wechsle ins docker Verzeichnis
 cd docker
 
 echo.
-echo Baue Docker Images...
+echo BUidling Docker Images...
 echo.
 
 REM Baue Images mit docker-compose
@@ -35,20 +35,20 @@ docker-compose build
 if %errorlevel% equ 0 (
     echo.
     echo =========================================
-    echo Build erfolgreich!
+    echo Build successful!
     echo.
     echo Starte das System mit:
     echo   cd docker ^&^& docker-compose up
     echo.
-    echo Oder im Hintergrund:
+    echo Or in the background:
     echo   cd docker ^&^& docker-compose up -d
     echo.
-    echo Stoppe das System mit:
+    echo Stop the system with:
     echo   cd docker ^&^& docker-compose down
     echo =========================================
 ) else (
     echo.
-    echo FEHLER: Build fehlgeschlagen!
+    echo ERROR: Build failed!
     pause
     exit /b 1
 )

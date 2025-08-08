@@ -1,21 +1,22 @@
 #!/bin/bash
-# Docker Build Script für das Marketplace System
+# Docker Build Script for das Marketplace System
 
 echo "========================================="
-echo "Docker Build für SCB Marketplace System"
+echo "Docker Build for SCB Marketplace System"
 echo "========================================="
 
-# Prüfe ob Docker läuft
+
+# Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
-    echo "FEHLER: Docker läuft nicht!"
-    echo "Bitte starte Docker Desktop und versuche es erneut."
+    echo "ERROR: Docker is not running!"
+    echo "Please start Docker Desktop and try again."
     exit 1
 fi
 
-# Prüfe ob JAR existiert
+# Check if JAR exists
 if [ ! -f "target/marktsimulation-1.0.0-jar-with-dependencies.jar" ]; then
-    echo "FEHLER: JAR nicht gefunden!"
-    echo "Führe erst './mvnw clean install' aus"
+    echo "ERROR: JAR not found!"
+    echo "First run './mvnw clean install'"
     exit 1
 fi
 
@@ -23,7 +24,7 @@ fi
 cd docker
 
 echo ""
-echo "Baue Docker Images..."
+echo "Building Docker Images..."
 echo ""
 
 # Baue Images mit docker-compose
@@ -32,19 +33,19 @@ docker-compose build
 if [ $? -eq 0 ]; then
     echo ""
     echo "========================================="
-    echo "Build erfolgreich!"
+    echo "Build successful!"
     echo ""
-    echo "Starte das System mit:"
+    echo "Start the system with:"
     echo "  cd docker && docker-compose up"
     echo ""
-    echo "Oder im Hintergrund:"
+    echo "Or in the background:"
     echo "  cd docker && docker-compose up -d"
     echo ""
-    echo "Stoppe das System mit:"
+    echo "Stop the system with:"
     echo "  cd docker && docker-compose down"
     echo "========================================="
 else
     echo ""
-    echo "FEHLER: Build fehlgeschlagen!"
+    echo "ERROR: Build failed!"
     exit 1
 fi
