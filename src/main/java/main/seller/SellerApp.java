@@ -28,7 +28,7 @@ public class SellerApp {
     }
     
     /**
-     * Initialisiert die korrekten Produkte für jeden Seller
+     * Initialisiert die Produkte für jeden Seller - gleichverteilt für vereinfachte Nachvollziehbarkeit
      */
     private void initializeProducts() {
         int initialStock = ConfigLoader.getInitialStock();

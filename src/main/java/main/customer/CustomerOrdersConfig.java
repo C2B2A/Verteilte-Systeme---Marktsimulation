@@ -12,7 +12,7 @@ import java.util.List;
 public class CustomerOrdersConfig {
     
     // Hauptschalter: true = automatisch generieren, false = vordefinierte verwenden
-    private static final boolean GENERATE_ORDERS = false;
+    private static final boolean GENERATE_ORDERS = true;
     
     // Vordefinierte Bestellungen - können nach Bedarf angepasst werden
     private static final List<PredefinedOrder> PREDEFINED_ORDERS = Arrays.asList(
@@ -24,7 +24,7 @@ public class CustomerOrdersConfig {
             )
         ),
         
-        // Bestellung 2: Produkte von mehreren Sellern
+        // Bestellung 2: Produkte von mehreren Sellern inkl. neuer Produkte
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PC", 1),
@@ -33,28 +33,51 @@ public class CustomerOrdersConfig {
             )
         ),
         
-        // Bestellung 3: Test für Failover (PC bei S2 und S3 verfügbar)
+        // Bestellung 3: Test für Failover (PC bei S2 und S3 verfügbar), plus neues Produkt
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PC", 3),
-                new Messages.OrderRequest.ProductOrder("PD", 2)
+                new Messages.OrderRequest.ProductOrder("PD", 2),
+                new Messages.OrderRequest.ProductOrder("PG", 1)
             )
         ),
         
-        // Bestellung 4: Große Bestellung (könnte fehlschlagen)
+        // Bestellung 4: Große Bestellung mit neuen Produkten
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PA", 5),
-                new Messages.OrderRequest.ProductOrder("PB", 4)
+                new Messages.OrderRequest.ProductOrder("PB", 4),
+                new Messages.OrderRequest.ProductOrder("PH", 2)
             )
         ),
         
-        // Bestellung 5: Test für doppelte Produkte (fachlicher Fehler)
+        // Bestellung 5: Test für doppelte Produkte (fachlicher Fehler) und neues Produkt
         new PredefinedOrder(
             Arrays.asList(
                 new Messages.OrderRequest.ProductOrder("PE", 2),
                 new Messages.OrderRequest.ProductOrder("PE", 1), // Duplikat!
-                new Messages.OrderRequest.ProductOrder("PD", 1)
+                new Messages.OrderRequest.ProductOrder("PD", 1),
+                new Messages.OrderRequest.ProductOrder("PI", 1)
+            )
+        ),
+        
+        // Bestellung 6: Nur neue Produkte
+        new PredefinedOrder(
+            Arrays.asList(
+                new Messages.OrderRequest.ProductOrder("PF", 2),
+                new Messages.OrderRequest.ProductOrder("PG", 1),
+                new Messages.OrderRequest.ProductOrder("PH", 1),
+                new Messages.OrderRequest.ProductOrder("PI", 3),
+                new Messages.OrderRequest.ProductOrder("PJ", 2)
+            )
+        ),
+        
+        // Bestellung 7: Mischung aus alten und neuen Produkten
+        new PredefinedOrder(
+            Arrays.asList(
+                new Messages.OrderRequest.ProductOrder("PB", 1),
+                new Messages.OrderRequest.ProductOrder("PG", 2),
+                new Messages.OrderRequest.ProductOrder("PJ", 1)
             )
         )
     );

@@ -116,13 +116,13 @@ public class CustomerApp {
             for (Messages.OrderRequest.ProductOrder p : order.products) {
                 System.out.println("  - " + p.productId + " x " + p.quantity);
             }
-            System.out.println("========================================");
             
             // Sende asynchron über persistenten Socket (wie OrderProcessor)
             String message = Messages.toJson(order);
             // dealerSocket.sendMore("");  // Leerer Routing-Frame für Auto-Routing, nicht nötig
             dealerSocket.send(message); // Message-Frame
-            System.out.println("[" + customerId + "] Bestellung gesendet!");
+            System.out.println("[" + customerId + "] Bestellung gesendet!" );
+            System.out.println("======================================== \n");
         } catch (Exception e) {
             System.err.println("[" + customerId + "] Fehler beim Senden: " + e.getMessage());
         }
@@ -155,7 +155,7 @@ public class CustomerApp {
                 // Nimm ein bereits verwendetes Produkt
                 String duplicateProduct = order.products.get(0).productId;
                 order.products.add(new Messages.OrderRequest.ProductOrder(duplicateProduct, quantity));
-                System.out.println("  WARNUNG: Doppelte Produktanforderung simuliert!");
+                System.out.println(" \n Achtung: Im Folgenden - Doppelte Produktanforderung simuliert! ");
                 break;
             } else {
                 order.products.add(new Messages.OrderRequest.ProductOrder(productId, quantity));

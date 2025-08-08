@@ -92,7 +92,7 @@ public class SagaManager {
     public void handleReservationResponse(Messages.ReserveResponse response) {
         OrderSaga saga = activeSagas.get(response.orderId);
         if (saga == null) {
-            System.err.println("[SAGA] Keine Saga gefunden für Order " + response.orderId);
+            System.err.println("[SAGA] Keine aktive Saga (mehr) für Order " + response.orderId);
             return;
         }
         

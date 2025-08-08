@@ -95,7 +95,7 @@ public class OrderProcessor {
      * Verarbeitet eine neue Bestellung
      */
     public void processOrder(Messages.OrderRequest order) {
-        System.out.println("\n[OrderProcessor] Neue Bestellung: " + order.orderId);
+        System.out.println("[OrderProcessor] Neue Bestellung: " + order.orderId);
         
         // Starte SAGA
         SagaManager.OrderSaga saga = sagaManager.startSaga(order);
