@@ -5,10 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
-/**
- * Loads configuration from properties file
- * Simple static methods for access
- */
+// Loads configuration from properties file
+// Simple static methods for access
 public class ConfigLoader {
     private static Properties properties;
     private static boolean loaded = false;
@@ -110,20 +108,16 @@ public class ConfigLoader {
         return Integer.parseInt(properties.getProperty("seller.initial_stock"));
     }
 
-    /**
-     * Probability that a product is "accidentally" unavailable
-     * (business error - simulation)
-     */
+    // Probability that a product is "accidentally" unavailable
+    // (business error - simulation)
     public static double getProductNotAvailableProbability() {
         ensureLoaded();
         return Double.parseDouble(properties.getProperty(
                 "simulation.probability.product_not_available", "0.2"));
     }
 
-    /**
-     * Probability of duplicate product requests in purchase orders
-     * (business error - simulation)
-     */
+    // Probability of duplicate product requests in purchase orders
+    // (business error - simulation)
     public static double getDuplicateProductProbability() {
         ensureLoaded();
         return Double.parseDouble(properties.getProperty(

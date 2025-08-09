@@ -5,9 +5,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Consolidated messaging class containing message types and handler functionality
- */
+// Consolidated messaging class containing message types and handler functionality
 public class Messages {
     
     // Message Types

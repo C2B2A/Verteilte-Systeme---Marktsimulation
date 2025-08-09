@@ -129,27 +129,26 @@ selbstständig verfasst und keine anderen als die angegebenen Quellen und Hilfsm
 haben.
 
 # Ergänzende Angaben:
-Systemarchitektur & Nebenläufigkeit
-- Keine Threads notwendig, sondern mehrere Prozesse, die miteinander kommunizieren --> D.h. mehrfacher Start von Programm (mit verschiedenen Ports…), die
-miteinander kommunizieren über ZeroMQ oder TCP/IP oder … erfolgen. Es ist wichtig, dass es nicht nur ein Programm ist sondern mehrere Prozesse
-- Jeder Prozess (z.B. Seller, Marketplace) läuft separat – z.B. auf verschiedenen Ports Marketplaces & Seller
-- es gibt 2 Marketplaces und je mindestens 5 Seller-Instanzen
-- jeder Seller kann mit beiden Marketplaces kommunizieren (nicht exklusiv gebunden) Produkte & Zuordnung
+System Architecture & Concurrency
+- No threads required, but rather multiple processes that communicate with each other → i.e., multiple program instances (with different ports, etc.) communicating via ZeroMQ, TCP/IP, or similar. It is important that there are multiple processes, not just one program
+- Each process (e.g., Seller, Marketplace) runs separately – e.g., on different ports for marketplaces and sellers
+- There are 2 marketplaces and at least 5 seller instances
+- Each seller can communicate with both marketplaces (not exclusively bound) for products & assignments
 
-Produkte & Zuordnung
-- jeder Seller bietet mehrere Produkte mit mehreren Verfügbarkeiten an -> beide Marketplace kommunizieren ggf. mit allen Sellern, d.h. ein Seller ist NICHT exklusiv an einen Marketplace gebunden
-- Mehrere Seller dürfen das gleiche Produkt anbieten -> ideal: jeder Seller hat 2 Produkte
+Products & Assignment
+- Each seller offers multiple products with multiple availabilities → both marketplaces may communicate with all sellers, i.e., a seller is not exclusively tied to one marketplace
+- Multiple sellers may offer the same product → ideally, each seller has 2 products
 
-Produktbestellung & Auswahl - Prozess
-- Kunde wählt gezielt, ob er in Marketplace 1 oder 2 bestellen will -> er setzt Bestellung mit Produkten von verschiedenen Sellern ab
-- Marketplace kontaktiert alle entsprechenden Seller, um die Produkte gem. Bestellung zu reservieren
-- wenn erfolgreich, dann werden alle Seller wieder kontaktiert, um die Bestellung auszulösen. Falls nicht erfolgreich, dann werden alle (erfolgreichen) Reservierungen rückgängig gemacht.
-- falls mehrere Seller ein Produkt anbieten, soll Kunde selbst entscheiden, von wem er das Produkt nun will
-- Zuteilung der Seller bei gleicher Produktverfügbarkeit ist gleich definiert.
+Product Ordering & Selection – Process
+- Customer explicitly chooses whether to order in Marketplace 1 or Marketplace 2 → they place an order containing products from various sellers
+- Marketplace contacts all relevant sellers to reserve the products according to the order
+- If successful, all sellers are contacted again to confirm the purchase. If not successful, all (successful) reservations are rolled back
+- If multiple sellers offer the same product, the customer decides from which seller to purchase it
+- Allocation of sellers with the same product availability is defined consistently
 
-Bestelllogik & Transaktionen
-- Bestellung kann Produkte von mehreren Sellern enthalten
-- Marketplace reserviert alle Produkte bei den entsprechenden Sellern
-- nur wenn alle Reservierungen erfolgreich, wird die Bestellung ausgelöst
-- falls eine Reservierung fehlschlägt, → alle Reservierungen werden zurückgenommen (Rollback)
-- Produkte sind verfügbarkeitsbeschränkt, d.h. Fehler (z.B. Ausverkauf) müssen einkalkuliert werden
+Ordering Logic & Transactions
+- An order can contain products from multiple sellers
+- Marketplace reserves all products at the corresponding sellers
+- Only if all reservations are successful, the order is confirmed
+- If one reservation fails → all reservations are canceled (rollback)
+- Products have limited availability, so errors (e.g., sold out) must be taken into account

@@ -11,10 +11,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Main class of the Marketplace
- * Receives orders from Customers and coordinates with OrderProcessor
- */
+// Main class of the Marketplace
+// Receives orders from Customers and coordinates with OrderProcessor
+
 public class MarketplaceApp {
     private final String marketplaceId;
     private final int port;
@@ -23,13 +22,12 @@ public class MarketplaceApp {
     private final ScheduledExecutorService scheduler;
     private final ZContext context;
     private boolean running = true;
-    
+
     // Port mapping for marketplaces
     private static final Map<String, Integer> MARKETPLACE_PORTS = Map.of(
-        "M1", 5570,
-        "M2", 5571
-    );
-    
+            "M1", 5570,
+            "M2", 5571);
+
     private final Map<String, byte[]> orderCustomerMap = new HashMap<>(); // Order-ID -> Customer-Identity
     private ZMQ.Socket receiver; // For status messages to Customer
 
@@ -41,10 +39,8 @@ public class MarketplaceApp {
         this.scheduler = Executors.newScheduledThreadPool(2);
         this.context = new ZContext();
     }
-    
-    /**
-     * Starts the Marketplace
-     */
+
+    // Starts the Marketplace
     public void start() {
         System.out.println("\n╔════════════════════════════════════════════╗");
         System.out.println("║      MARKETPLACE " + marketplaceId + " STARTED               ║");
@@ -58,7 +54,7 @@ public class MarketplaceApp {
         System.out.println("║ Seller S4: PG (Product G), PH (Product H) ║");
         System.out.println("║ Seller S5: PI (Product I), PJ (Product J) ║");
         System.out.println("╚════════════════════════════════════════════╝\n");
-        
+
         ConfigLoader.printConfig();
 
         // Start order receiver in its own thread
@@ -66,12 +62,11 @@ public class MarketplaceApp {
 
         // Start status monitor
         scheduler.scheduleWithFixedDelay(
-            sagaManager::printActiveSagas,
-            5000,
-            10000,
-            TimeUnit.MILLISECONDS
-        );
-        
+                sagaManager::printActiveSagas,
+                5000,
+                10000,
+                TimeUnit.MILLISECONDS);
+
         // Shutdown-Hook
         Runtime.getRuntime().addShutdownHook(new Thread(this::shutdown));
 
@@ -85,10 +80,8 @@ public class MarketplaceApp {
             }
         }
     }
-    
-    /**
-     * Receives orders from Customers via ROUTER Socket
-     */
+
+    // Receives orders from Customers via ROUTER Socket
     private void receiveOrders() {
         receiver = context.createSocket(SocketType.ROUTER);
         receiver.bind("tcp://127.0.0.1:" + port);
@@ -114,8 +107,8 @@ public class MarketplaceApp {
                         for (Messages.OrderRequest.ProductOrder p : order.products) {
                             // Find possible sellers for this product
                             List<String> possibleSellers = findSellersForProduct(p.productId);
-                            System.out.println("  - " + p.productId + " x " + p.quantity + 
-                                             " (available at: " + String.join(", ", possibleSellers) + ")");
+                            System.out.println("  - " + p.productId + " x " + p.quantity +
+                                    " (available at: " + String.join(", ", possibleSellers) + ")");
                         }
                         System.out.println("========================================");
 
@@ -146,23 +139,20 @@ public class MarketplaceApp {
 
         receiver.close();
     }
-    
-    /**
-     * Sends status message to customer after order completion
-     */
+
+    // Sends status message to customer after order completion
     public void sendOrderStatusToCustomer(String orderId, String statusMessage) {
         byte[] customerIdentity = orderCustomerMap.get(orderId);
         if (customerIdentity != null && receiver != null) {
             receiver.sendMore(customerIdentity);
             receiver.send(statusMessage);
-            System.out.println("[" + marketplaceId + "] Status for Order " + orderId + " sent to Customer: " + statusMessage);
+            System.out.println(
+                    "[" + marketplaceId + "] Status for Order " + orderId + " sent to Customer: " + statusMessage);
             orderCustomerMap.remove(orderId); // remove after sending
         }
     }
 
-    /**
-     * Finds all sellers that have a specific product
-     */
+    // Finds all sellers that have a specific product
     private List<String> findSellersForProduct(String productId) {
         Map<String, List<String>> productSellerMap = new HashMap<>();
         productSellerMap.put("PA", Arrays.asList("S1"));
@@ -175,20 +165,18 @@ public class MarketplaceApp {
         productSellerMap.put("PH", Arrays.asList("S4"));
         productSellerMap.put("PI", Arrays.asList("S5"));
         productSellerMap.put("PJ", Arrays.asList("S5"));
-        
+
         return productSellerMap.getOrDefault(productId, new ArrayList<>());
     }
-    
-    /**
-     * Ends the Marketplace
-     */
+
+    // Ends the Marketplace
     public void shutdown() {
         System.out.println("\n[" + marketplaceId + "] Shut down...");
         running = false;
         scheduler.shutdown();
         orderProcessor.shutdown();
         context.close();
-        
+
         try {
             if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
                 scheduler.shutdownNow();
@@ -196,17 +184,15 @@ public class MarketplaceApp {
         } catch (InterruptedException e) {
             scheduler.shutdownNow();
         }
-        
+
         System.out.println("[" + marketplaceId + "] Finished.");
     }
-    
-    /**
-     * Main method
-     */
+
+    // Main method
     public static void main(String[] args) {
         String marketplaceId = "M1";
         String configFile = null;
-        
+
         // Parse arguments
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("--id=")) {

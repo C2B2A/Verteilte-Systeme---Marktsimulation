@@ -4,10 +4,8 @@ import main.marketplace.MarketplaceApp;
 import main.seller.SellerApp;
 import main.customer.CustomerApp;
 
-/**
- * Main class for starting Marketplace, Seller, or Customer
- * Usage: java -jar <jar> --mode=<marketplace|seller|customer> [more options]
- */
+// Main class for starting Marketplace, Seller, or Customer
+// Usage: java -jar <jar> --mode=<marketplace|seller|customer> [more options]
 public class MainLauncher {
     
     public static void main(String[] args) {

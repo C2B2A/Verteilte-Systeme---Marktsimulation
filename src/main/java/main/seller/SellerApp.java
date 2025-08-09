@@ -9,9 +9,7 @@ import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
 import java.util.Map;
 
-/**
- * Seller with correct product distribution
- */
+// Seller with correct product distribution
 public class SellerApp {
     private final String sellerId;
     private final int port;
@@ -26,10 +24,8 @@ public class SellerApp {
         // Initialize products according to requirements
         initializeProducts();
     }
-    
-    /**
-     * Initializes the products for each seller - evenly distributed for simplified traceability
-     */
+
+    // Initializes the products for each seller - evenly distributed for simplified traceability
     private void initializeProducts() {
         int initialStock = ConfigLoader.getInitialStock();
         

@@ -2,10 +2,8 @@ package main.simulation;
 
 import java.util.Random;
 
-/**
- * Simulates technical and professional errors based on probabilities
- * Uses normal distribution for times
- */
+// Simulates technical and professional errors based on probabilities
+// Uses normal distribution for times
 public class ErrorSimulator {
     private static final Random random = new Random();
 
@@ -22,10 +20,8 @@ public class ErrorSimulator {
         PRODUCT_UNAVAILABLE,     // Product "accidentally" unavailable
         UNKNOWN_PRODUCT         // Product ID unknown (checked in SellerApp)
     }
-    
-    /**
-     * Determines which TECHNICAL error type should occur
-     */
+
+    // Determines which TECHNICAL error type should occur
     public static ErrorType getNextError() {
         double rand = random.nextDouble();
         double successProb = ConfigLoader.getSuccessProbability();
@@ -39,11 +35,9 @@ public class ErrorSimulator {
             return ErrorType.FAIL_CRASH;
         }
     }
-    
-    /**
-     * Determines whether a BUSINESS error should occur
-     * Is only called if everything is technically OK
-     */
+
+    // Determines whether a BUSINESS error should occur
+    // Is only called if everything is technically OK
     public static BusinessError getBusinessError() {
         double rand = random.nextDouble();
 
@@ -54,10 +48,8 @@ public class ErrorSimulator {
         
         return BusinessError.NONE;
     }
-    
-    /**
-     * Simulates processing time (Normal-distributed)
-     */
+
+    // Simulates processing time (Normal-distributed)
     public static int getProcessingTime() {
         int average = ConfigLoader.getAverageProcessingTime();
         int stdDev = ConfigLoader.getProcessingTimeStdDev();
@@ -69,10 +61,8 @@ public class ErrorSimulator {
         // At least 100ms
         return Math.max(100, processingTime);
     }
-    
-    /**
-     * Helper method: Put thread to sleep for processing simulation
-     */
+
+    // Helper method: Put thread to sleep for processing simulation
     public static void simulateProcessing() {
         try {
             Thread.sleep(getProcessingTime());
@@ -80,10 +70,8 @@ public class ErrorSimulator {
             Thread.currentThread().interrupt();
         }
     }
-    
-    /**
-     * Debug: Display error statistics
-     */
+
+    // Debug: Display error statistics
     public static void printErrorStatistics(int total) {
         System.out.println("\n=== Error Statistics (Expectation for " + total + " Requests) ===");
         System.out.println("TECHNICAL ERRORS:");
