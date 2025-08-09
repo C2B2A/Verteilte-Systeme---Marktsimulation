@@ -6,7 +6,7 @@
 - **NO Maven installation needed** (Maven wrappers are implemented)
 
 This marketplace simulation was developed and tested using **VSCode**.
-**First time:** The Maven wrapper automatically installs everything. Can take a short time, after this everything should be set and the IDE / VSCode restartet until *Java:Ready* is displayed.
+**First time:** The Maven wrapper automatically installs everything. It can take a short time, after this everything should be set and the IDE / VSCode restartet until *Java:Ready* is displayed.
 
 ## User Manual ------------------------------
 This project uses Maven to build. After every change in code it has to be rebuilt using the commands below.
