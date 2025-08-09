@@ -27,7 +27,7 @@ There are two files, which support manual change to change how the simulation re
 **IMPORTANT NOTE:**  use **cmd** as terminal - NOT POWERSHELL since this might lead to administrative errors
 build clean install
     (is used to compile and build the project - is to be used after every codechange)
-## Executing the project AUTOATICALLY via the terminal on Windows
+## Executing the project AUTOMATICALLY via the terminal on Windows
 start-system.bat
 
 ### Mac (using the standard terminal)
