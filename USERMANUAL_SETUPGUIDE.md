@@ -12,9 +12,12 @@ This marketplace simulation was developed and tested using **VSCode**.
 This project uses Maven to build. After every change in code it has to be rebuilt using the commands below.
 To start the simulation follow these steps (either for Windows or for Mac):
 1. build the project (see commands below for details)
-2. use the start script to automatically start the simulation (works best with Windows)
+2. use the start scripts to automatically start the simulation (works best with Windows)
     or:
     use the executable JAR files to manually start the simulation (works best with Mac)
+
+**--> The start script works best with Windows;** it automatically starts a seperate window for each process. 
+**--> The manual start via the executable JAR files in seperate terminals works best with Mac;** here the start script starts seperate processes but Mac shows them all in one terminal.
 
 There are two files, which support manual change to change how the simulation reacts: 
 - config.properties (in the config folder): holds general parameters
@@ -27,7 +30,7 @@ There are two files, which support manual change to change how the simulation re
 **IMPORTANT NOTE:**  use **cmd** as terminal - NOT POWERSHELL since this might lead to administrative errors
 build clean install
     (is used to compile and build the project - is to be used after every codechange)
-## Executing the project AUTOMATICALLY via the terminal on Windows
+## Executing the project AUTOMATICALLY via the terminal on Windows - RECOMMENDED FOR WINDOWS
 start-system.bat
 
 ### Mac (using the standard terminal)
@@ -54,7 +57,7 @@ chmod +x start-system.sh
 pkill -f marktsimulation 
     it's possible that Ctrl+C is not sufficient
 
-### Executing the project MANUALLY
+### Executing the project MANUALLY - RECOMMENDED FOR MAC
 **To do this the following executable JARs have to be started *seperately* in an own terminal each.**
 ## 1. Starting the sellers
 java -jar target/marktsimulation-1.0.0-jar-with-dependencies.jar --mode=seller --id=S1 --port=5556
